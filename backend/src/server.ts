@@ -9,7 +9,7 @@ import { getDelayRiskAssessment, getGroundedTripNarrative, getOccupancyForecast,
 type AppRole = 'admin' | 'staff' | 'user';
 
 const app = express();
-app.use(cors({ origin: env.frontend, credentials: true }));
+app.use(cors({ origin: [env.frontend, 'http://localhost:3000', 'http://127.0.0.1:3000'], credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
 const auth = (req: any, res: any, next: any) => {

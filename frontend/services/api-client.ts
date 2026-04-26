@@ -1,6 +1,9 @@
 import { AlertItem, CrowdFeedReport, CrowdReportResult, DeploymentPlan, PredictionCardData, RouteItem, SiteSettings, StaffRouteOps, TeamMember, ThemePreset, TripForecast, User } from '@/lib/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
+let base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
+if (base.endsWith('/')) base = base.slice(0, -1);
+if (!base.endsWith('/api')) base += '/api';
+const API_BASE_URL = base;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
