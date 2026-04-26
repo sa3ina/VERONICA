@@ -1,4 +1,3 @@
-
 # api.py
 
 import sys, os
@@ -13,10 +12,19 @@ import storage
 import main as cam
 
 from flask import Flask, jsonify, render_template
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all domains
 
+# Start camera loop when module loads (for gunicorn)
+camera_thread = None
 
+def init_camera():
+    global camera_thread
+    if camera_thread is None or not camera_thread.is_alive():
+        camera_thread = cam.start()
+        print("[INFO] Camera thread started")
 
 @app.route("/")
 def index():
@@ -29,7 +37,7 @@ def status():
     """
     Ən son ölçməni qaytarır.
     Dashboard hər 2 saniyədən bir bunu çağırır.
-    
+
     Nümunə cavab:
     {
         "count": 15,
@@ -58,6 +66,18 @@ def frame():
     })
 
 
+@app.route("/health")
+def health():
+    """Health check endpoint for Render"""
+    return jsonify({"status": "ok", "camera_running": camera_thread is not None and camera_thread.is_alive()})
+
+
+# Initialize camera on first request (for serverless environments)
+@app.before_request
+def before_first_request():
+    init_camera()
+
+
 if __name__ == "__main__":
-    cam.start()   
+    init_camera()
     app.run(host=config.HOST, port=config.PORT, debug=False)

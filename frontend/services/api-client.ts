@@ -106,5 +106,8 @@ export const apiClient = {
   getCameraOverview: (token: string) => request<CameraOverviewResponse>('/camera/overview', { headers: { Authorization: `Bearer ${token}` } }),
   startMlCamera: (token: string) => request<{ started: boolean; available: boolean; message: string }>('/camera/ml-start', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }),
   getMlCameraFrame: (token: string) => request<{ available: boolean; frame: string | null }>('/camera/ml-frame', { headers: { Authorization: `Bearer ${token}` } }),
-  simulateCameraData: (token: string) => request<{ ok: boolean; generatedAt: string }>('/camera/simulate', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+  simulateCameraData: (token: string) => request<{ ok: boolean; generatedAt: string }>('/camera/simulate', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }),
+  analyzeWithVision: (token: string, payload: { imageBase64: string; routeId?: string; cameraId?: string }) =>
+    request<{ success: boolean; count: number; crowdInfo: any; snapshot: any; rawResponse: string }>('/camera/vision-analyze', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }),
+  getVisionStatus: (token: string) => request<{ apiKeyConfigured: boolean; model: string }>('/camera/vision-status', { headers: { Authorization: `Bearer ${token}` } })
 };

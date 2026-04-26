@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Users, Waves, RefreshCcw } from 'lucide-react';
+import { Camera, Users, Waves, RefreshCcw, Brain, Play, Timer } from 'lucide-react';
 import { ProtectedShell } from '@/components/layout/protected-shell';
 import { useApp } from '@/components/providers/app-provider';
 import { apiClient } from '@/services/api-client';
@@ -35,8 +35,15 @@ export default function CameraPage() {
   const [mlFrame, setMlFrame] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [visionAnalyzing, setVisionAnalyzing] = useState(false);
+  const [visionResult, setVisionResult] = useState<{ count: number; level: string } | null>(null);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
+  const [nextAnalysisIn, setNextAnalysisIn] = useState(300); // 5 dəqiqə = 300 saniyə
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoAnalyzeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -150,6 +157,19 @@ export default function CameraPage() {
     }
   }, [ensureMlStarted, refreshDevices, selectedDeviceId]);
 
+  // Frame çəkib base64-ə çevir
+  const captureFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return null;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.85);
+  }, []);
+
   useEffect(() => () => stopLocalCamera(), [stopLocalCamera]);
 
   useEffect(() => {
@@ -165,6 +185,59 @@ export default function CameraPage() {
   const mlConnected = isOpsRole
     ? Boolean(mlSnapshot)
     : activeSnapshot?.source === 'ml-model';
+
+  // OpenRouter Vision ilə analiz et
+  const analyzeWithVision = useCallback(async () => {
+    if (!token || !cameraActive) return;
+    const frameData = captureFrame();
+    if (!frameData) {
+      setCameraError('Frame çəkilmədi');
+      return;
+    }
+    setVisionAnalyzing(true);
+    setCameraError('');
+    try {
+      const result = await apiClient.analyzeWithVision(token, {
+        imageBase64: frameData,
+        routeId: activeSnapshot?.routeId,
+        cameraId: selectedDeviceId || 'browser-camera'
+      });
+      if (result.success) {
+        setVisionResult({ count: result.count, level: result.crowdInfo.level });
+        await load(); // Yeni data ilə yenilə
+      } else {
+        setCameraError('Vision analizi uğursuz oldu');
+      }
+    } catch (err: any) {
+      const message = err?.message || 'Vision analizi xətası';
+      console.error('[Vision Error]', err);
+      setCameraError(message);
+    } finally {
+      setVisionAnalyzing(false);
+    }
+  }, [token, cameraActive, captureFrame, activeSnapshot?.routeId, selectedDeviceId, load]);
+
+  // Auto 5 dəqiqəlik analiz
+  useEffect(() => {
+    if (!autoAnalyze || !cameraActive) {
+      if (autoAnalyzeTimerRef.current) clearInterval(autoAnalyzeTimerRef.current);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+      return;
+    }
+    // Hər 5 dəqiqədən bir analiz
+    autoAnalyzeTimerRef.current = setInterval(() => {
+      analyzeWithVision();
+      setNextAnalysisIn(300);
+    }, 5 * 60 * 1000);
+    // Countdown timer
+    countdownTimerRef.current = setInterval(() => {
+      setNextAnalysisIn(prev => prev > 0 ? prev - 1 : 300);
+    }, 1000);
+    return () => {
+      if (autoAnalyzeTimerRef.current) clearInterval(autoAnalyzeTimerRef.current);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, [autoAnalyze, cameraActive, analyzeWithVision]);
 
   const crowdedSummary = useMemo(() => {
     const summary = data?.summary;
@@ -224,6 +297,27 @@ export default function CameraPage() {
               ) : (
                 <Button onClick={startLocalCamera} loading={mlBooting}>Kameranı aç</Button>
               )}
+              {cameraActive && isOpsRole && (
+                <>
+                  <Button 
+                    variant='secondary' 
+                    leftIcon={<Brain className='h-4 w-4' />}
+                    onClick={analyzeWithVision}
+                    loading={visionAnalyzing}
+                    disabled={!cameraActive}
+                  >
+                    {visionAnalyzing ? 'AI analiz edir...' : 'AI ilə analiz et'}
+                  </Button>
+                  <Button
+                    variant={autoAnalyze ? 'primary' : 'outline'}
+                    leftIcon={<Timer className='h-4 w-4' />}
+                    onClick={() => setAutoAnalyze(!autoAnalyze)}
+                    disabled={!cameraActive}
+                  >
+                    {autoAnalyze ? `Auto: ${Math.floor(nextAnalysisIn / 60)}:${String(nextAnalysisIn % 60).padStart(2, '0')}` : 'Auto 5 dəqiqə'}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -234,6 +328,7 @@ export default function CameraPage() {
               ) : (
                 <video ref={videoRef} className='h-[290px] w-full object-cover' autoPlay muted playsInline />
               )}
+              <canvas ref={canvasRef} className='hidden' />
 
               <div className='pointer-events-none absolute left-3 top-3'>
                 <Badge tone={cameraActive ? 'success' : 'neutral'} withDot>{cameraActive ? 'Kamera aktiv' : 'Kamera bağlı'}</Badge>
@@ -252,6 +347,19 @@ export default function CameraPage() {
               ) : null}
             </div>
           </div>
+
+          {visionResult && (
+            <div className='rounded-lg border border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/10 p-4'>
+              <div className='flex items-center gap-2'>
+                <Brain className='h-5 w-5 text-[color:var(--brand-primary)]' />
+                <span className='font-semibold'>OpenRouter AI Nəticəsi:</span>
+                <span className='text-lg font-bold'>{visionResult.count} adam</span>
+                <Badge tone={visionResult.level === 'high' ? 'danger' : visionResult.level === 'medium' ? 'warning' : 'success'}>
+                  {visionResult.level === 'high' ? 'Çox sıx' : visionResult.level === 'medium' ? 'Orta' : 'Az'}
+                </Badge>
+              </div>
+            </div>
+          )}
 
           {activeSnapshot ? (
             <div className='grid gap-3 sm:grid-cols-4'>

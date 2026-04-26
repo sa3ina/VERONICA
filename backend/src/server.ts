@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 import { env } from './config';
 import { readDb, writeDb, dbFilePath } from './db';
 import { sign, verify } from './auth';
-import { getDelayRiskAssessment, getGroundedTripNarrative, getOccupancyForecast, getPassengerFlowPrediction, getSmartRecommendation } from './services/ai';
+import { countPeopleWithVision, calculateCrowdLevel, getDelayRiskAssessment, getGroundedTripNarrative, getOccupancyForecast, getPassengerFlowPrediction, getSmartRecommendation } from './services/ai';
 
 type AppRole = 'admin' | 'staff' | 'user';
 
@@ -26,7 +26,7 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 const auth = (req: any, res: any, next: any) => {
   const h = req.headers.authorization;
@@ -941,6 +941,95 @@ app.post('/api/camera/simulate', staff, async (_req, res) => {
     ok: true,
     generatedAt: new Date().toISOString(),
     buses: latest
+  });
+});
+
+// OpenRouter Vision API ilə adam sayma
+app.post('/api/camera/vision-analyze', staff, async (req, res) => {
+  try {
+    const { imageBase64, routeId, cameraId } = req.body;
+    
+    console.log('[Vision] Request received:', { routeId, cameraId, hasImage: !!imageBase64, imageLength: imageBase64?.length });
+    
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      console.log('[Vision] ERROR: imageBase64 missing or not string');
+      return res.status(400).json({ message: 'imageBase64 tələb olunur' });
+    }
+
+    // API key yoxla
+    if (!env.openRouterApiKey) {
+      console.log('[Vision] ERROR: OPENROUTER_API_KEY not configured');
+      return res.status(500).json({ message: 'OpenRouter API key konfiqurasiya edilməyib (.env faylında OPENROUTER_API_KEY əlavə edin)' });
+    }
+
+    console.log('[Vision] Frame analiz edilir...');
+    const result = await countPeopleWithVision(imageBase64);
+    
+    console.log('[Vision] Result:', result);
+    
+    if (!result.success || result.count === null) {
+      return res.status(500).json({ 
+        message: 'Vision API uğursuz oldu', 
+        error: result.error,
+        rawResponse: result.rawResponse 
+      });
+    }
+
+    // Crowd level hesabla
+    const crowdInfo = calculateCrowdLevel(result.count);
+    
+    // DB-ə yaz
+    const db = readDb();
+    const snapshots = db.cameraSnapshots || [];
+    const route = db.routes.find((r: any) => r.id === routeId);
+    
+    const snapshot = {
+      id: `vision_${Date.now()}`,
+      busId: cameraId || 'vision-camera',
+      routeId: routeId || (route?.id ?? 'unknown'),
+      routeName: route?.name ?? 'Unknown Route',
+      cameraId: cameraId ?? 'cam-vision',
+      occupancyPercent: crowdInfo.percent,
+      peopleCount: result.count,
+      crowdLevel: crowdInfo.level,
+      statusTextAz: crowdInfo.textAz,
+      tone: crowdInfo.level === 'high' ? 'alert' : crowdInfo.level === 'medium' ? 'warning' : 'success',
+      confidence: 0.95,
+      timestamp: new Date().toISOString(),
+      source: 'openrouter-vision',
+      rawResponse: result.rawResponse
+    };
+    
+    snapshots.push(snapshot);
+    db.cameraSnapshots = snapshots.slice(-400);
+    
+    if (route) {
+      route.occupancy = crowdInfo.percent;
+      route.crowded = crowdInfo.level === 'high';
+    }
+    
+    writeDb(db);
+    
+    console.log(`[Vision] ${result.count} adam tapıldı (${crowdInfo.level})`);
+    
+    res.json({
+      success: true,
+      count: result.count,
+      crowdInfo,
+      snapshot,
+      rawResponse: result.rawResponse
+    });
+    
+  } catch (e: any) {
+    res.status(500).json({ message: e.message || 'Vision analizi xətası' });
+  }
+});
+
+// Vision API status
+app.get('/api/camera/vision-status', auth, (_req, res) => {
+  res.json({
+    apiKeyConfigured: !!env.openRouterApiKey,
+    model: 'google/gemini-2.0-flash-exp:free'
   });
 });
 

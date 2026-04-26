@@ -1,6 +1,111 @@
 import { env } from '../config';
 import { readDb } from '../db';
 
+// Vision API üçün crowd counting
+export async function countPeopleWithVision(base64Image: string): Promise<{
+  count: number | null;
+  rawResponse: string;
+  success: boolean;
+  error?: string;
+}> {
+  if (!env.openRouterApiKey) {
+    return { count: null, rawResponse: '', success: false, error: 'OPENROUTER_API_KEY yoxdur' };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30 san timeout
+
+  try {
+    const response = await fetch(`${env.openRouterBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': env.frontend,
+        'X-Title': 'VERONICA Crowd Counter'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Bu şəkildə tam olaraq neçə adam görürsən? Yalnız rəqəm yaz, heç bir əlavə söz olmadan. Məsələn: "15" və ya "0" əgər adam yoxdursa.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ]
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenRouter API xətası: ${response.status} - ${text}`);
+    }
+
+    const data: any = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    
+    if (!content || typeof content !== 'string') {
+      throw new Error('OpenRouter cavabı boşdur');
+    }
+
+    // Rəqəmi extract et
+    const numbers = content.match(/\d+/);
+    if (numbers) {
+      const count = parseInt(numbers[0], 10);
+      return { count, rawResponse: content, success: true };
+    } else {
+      return { count: null, rawResponse: content, success: false, error: 'Rəqəm tapılmadı' };
+    }
+
+  } catch (error: any) {
+    return { 
+      count: null, 
+      rawResponse: '', 
+      success: false, 
+      error: error.message || 'Bilinməyən xəta' 
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Crowd level təyin etmək
+export function calculateCrowdLevel(count: number, capacity: number = 30) {
+  const ratio = Math.min(count / capacity, 1.0);
+  const percent = Math.round(ratio * 100);
+  
+  let level: 'low' | 'medium' | 'high';
+  let color: string;
+  let textAz: string;
+  
+  if (ratio <= 0.40) {
+    level = 'low';
+    color = 'green';
+    textAz = 'Az dolu';
+  } else if (ratio <= 0.70) {
+    level = 'medium';
+    color = 'yellow';
+    textAz = 'Orta dolu';
+  } else {
+    level = 'high';
+    color = 'red';
+    textAz = 'Çox sıx';
+  }
+  
+  return { count, percent, level, color, textAz, capacity };
+}
+
 function buildMockRecommendation(userContext: Record<string, unknown>) {
   const preferred = typeof userContext.preferredTransport === 'string' ? userContext.preferredTransport : 'metro';
   return {
