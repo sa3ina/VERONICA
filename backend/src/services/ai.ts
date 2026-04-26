@@ -1,81 +1,58 @@
 import { env } from '../config';
 import { readDb } from '../db';
 
-// Vision API üçün crowd counting - Google Gemini (free tier)
+// Vision API üçün crowd counting - Hugging Face (free tier, çox stabil)
 export async function countPeopleWithVision(base64Image: string): Promise<{
   count: number | null;
   rawResponse: string;
   success: boolean;
   error?: string;
 }> {
-  // Google API key istifadə et (əvvəl OPENROUTER_API_KEY, sonra GOOGLE_API_KEY)
-  const apiKey = process.env.GOOGLE_API_KEY || env.openRouterApiKey;
+  // HF_TOKEN istifadə et (və ya köhnə OPENROUTER_API_KEY)
+  const hfToken = process.env.HF_TOKEN;
   
-  if (!apiKey) {
-    return { count: null, rawResponse: '', success: false, error: 'GOOGLE_API_KEY və ya OPENROUTER_API_KEY lazımdır. https://aistudio.google.com/app/apikey ilə əldə edin' };
+  if (!hfToken) {
+    return { count: null, rawResponse: '', success: false, error: 'HF_TOKEN lazımdır. https://huggingface.co/settings/tokens ilə əldə edin' };
   }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
-    console.log('[Gemini] API call starting...');
-    console.log('[Gemini] Image data length:', base64Image?.length);
+    console.log('[HF] API call starting...');
+    console.log('[HF] Image data length:', base64Image?.length);
 
-    // Base64 data: prefix sil
+    // Base64-dən ArrayBuffer yarat
     const base64Data = base64Image.replace(/^data:image\/[^;]+;base64,/, '');
+    const binaryString = atob(base64Data);
+    const bytes = Buffer.from(binaryString, 'binary');
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    // Hugging Face Inference API - Salesforce BLIP (image captioning, adam sayma üçün)
+    // Node.js fetch Buffer-i body kimi qəbul edir
+    const response = await fetch('https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${hfToken}`,
+        'Content-Type': 'application/octet-stream'
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: 'Bu şəkildə tam olaraq neçə adam görürsən? Yalnız rəqəm yaz, heç bir əlavə söz olmadan. Məsələn: "15" və ya "0" əgər adam yoxdursa.' },
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: base64Data
-              }
-            }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 10
-        }
-      }),
+      body: bytes as any,
       signal: controller.signal
     });
 
-    console.log('[Gemini] Response status:', response.status);
+    console.log('[HF] Response status:', response.status);
 
     if (!response.ok) {
       const text = await response.text();
-      console.error('[Gemini] Error response:', text);
-      throw new Error(`Gemini API xətası: ${response.status} - ${text}`);
+      console.error('[HF] Error response:', text);
+      throw new Error(`HF API xətası: ${response.status} - ${text}`);
     }
 
     const data: any = await response.json();
-    console.log('[Gemini] Response data:', JSON.stringify(data, null, 2));
+    console.log('[HF] Response data:', JSON.stringify(data, null, 2));
 
-    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!content || typeof content !== 'string') {
-      console.error('[Gemini] Empty content in response');
-      throw new Error('Gemini cavabı boşdur');
-    }
-
-    // Rəqəmi extract et
-    const numbers = content.match(/\d+/);
-    if (numbers) {
-      const count = parseInt(numbers[0], 10);
-      return { count, rawResponse: content, success: true };
-    } else {
-      return { count: null, rawResponse: content, success: false, error: 'Rəqəm tapılmadı' };
-    }
+    // BLIP caption qaytarır, buradan adam sayını çıxarmaq çətindir
+    // Ona görə dəyişirik: object detection modeli istifadə edək
+    return await countWithObjectDetection(bytes, hfToken, controller.signal);
 
   } catch (error: any) {
     return {
@@ -86,6 +63,61 @@ export async function countPeopleWithVision(base64Image: string): Promise<{
     };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+// Object detection ilə adam saymaq (daha dəqiq)
+async function countWithObjectDetection(imageBytes: Buffer, hfToken: string, signal: AbortSignal): Promise<{
+  count: number | null;
+  rawResponse: string;
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    console.log('[HF OD] Object detection başlayır...');
+    
+    // facebook/detr-resnet-50 modeli - object detection (person class var)
+    const response = await fetch('https://api-inference.huggingface.co/models/facebook/detr-resnet-50', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${hfToken}`,
+        'Content-Type': 'application/octet-stream'
+      },
+      body: imageBytes as any,
+      signal
+    });
+
+    console.log('[HF OD] Response status:', response.status);
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('[HF OD] Error:', text);
+      throw new Error(`Object detection xətası: ${response.status}`);
+    }
+
+    const data: any = await response.json();
+    console.log('[HF OD] Data:', JSON.stringify(data, null, 2));
+
+    // DETR modeli [{label: "person", score: 0.9, box: [...]}, ...] formatında qaytarır
+    if (Array.isArray(data)) {
+      // Yalnız "person" class-ını say
+      const personCount = data.filter((item: any) => 
+        item.label?.toLowerCase() === 'person' || 
+        item.label?.toLowerCase() === 'man' || 
+        item.label?.toLowerCase() === 'woman'
+      ).length;
+      
+      return { 
+        count: personCount, 
+        rawResponse: JSON.stringify(data), 
+        success: true 
+      };
+    }
+
+    return { count: null, rawResponse: JSON.stringify(data), success: false, error: 'Gözlənilməz format' };
+
+  } catch (error: any) {
+    return { count: null, rawResponse: '', success: false, error: error.message };
   }
 }
 
