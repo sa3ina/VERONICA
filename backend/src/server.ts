@@ -1029,11 +1029,17 @@ app.post('/api/camera/vision-analyze', staff, async (req, res) => {
   }
 });
 
-// Vision API status
-app.get('/api/camera/vision-status', auth, (_req, res) => {
+// Vision status endpoint
+app.get('/api/camera/vision-status', staff, (req, res) => {
+  const apiKeyPreview = env.openRouterApiKey 
+    ? `${env.openRouterApiKey.slice(0, 10)}...${env.openRouterApiKey.slice(-4)}` 
+    : 'NOT SET';
   res.json({
     apiKeyConfigured: !!env.openRouterApiKey,
-    model: 'google/gemini-2.0-flash-exp:free'
+    apiKeyPreview,
+    model: 'qwen/qwen2.5-vl-72b-instruct:free',
+    baseUrl: env.openRouterBaseUrl,
+    help: !env.openRouterApiKey ? 'Add OPENROUTER_API_KEY to Render Environment Variables' : undefined
   });
 });
 
