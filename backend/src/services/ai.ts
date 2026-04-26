@@ -30,7 +30,7 @@ export async function countPeopleWithVision(base64Image: string): Promise<{
         'X-Title': 'VERONICA Crowd Counter'
       },
       body: JSON.stringify({
-        model: 'qwen/qwen2.5-vl-72b-instruct:free',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: [
           {
             role: 'user',

@@ -1037,7 +1037,7 @@ app.get('/api/camera/vision-status', staff, (req, res) => {
   res.json({
     apiKeyConfigured: !!env.openRouterApiKey,
     apiKeyPreview,
-    model: 'qwen/qwen2.5-vl-72b-instruct:free',
+    model: 'google/gemini-2.0-flash-exp:free',
     baseUrl: env.openRouterBaseUrl,
     help: !env.openRouterApiKey ? 'Add OPENROUTER_API_KEY to Render Environment Variables' : undefined
   });
