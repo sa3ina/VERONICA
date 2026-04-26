@@ -154,3 +154,32 @@ export interface CrowdReportResult {
     recentReports: CrowdFeedReport[];
   };
 }
+
+export interface CameraBusSnapshot {
+  id: string;
+  busId: string;
+  routeId: string;
+  routeName: string;
+  cameraId: string;
+  occupancyPercent: number;
+  peopleCount: number;
+  crowdLevel: 'low' | 'medium' | 'high';
+  statusTextAz: string;
+  tone: 'success' | 'warning' | 'danger';
+  confidence: number;
+  timestamp: string;
+  source: string;
+}
+
+export interface CameraOverviewResponse {
+  scope: 'single-bus' | 'fleet';
+  bus?: CameraBusSnapshot | null;
+  buses?: CameraBusSnapshot[];
+  summary?: {
+    total: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  generatedAt: string;
+}

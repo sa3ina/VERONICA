@@ -1,4 +1,4 @@
-import { AlertItem, CrowdFeedReport, CrowdReportResult, DeploymentPlan, PredictionCardData, RouteItem, SiteSettings, StaffRouteOps, TeamMember, ThemePreset, TripForecast, User } from '@/lib/types';
+import { AlertItem, CameraOverviewResponse, CrowdFeedReport, CrowdReportResult, DeploymentPlan, PredictionCardData, RouteItem, SiteSettings, StaffRouteOps, TeamMember, ThemePreset, TripForecast, User } from '@/lib/types';
 
 let base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
 if (base.endsWith('/')) base = base.slice(0, -1);
@@ -102,5 +102,9 @@ export const apiClient = {
       durationSeconds: number;
       staticMapUrl: string;
       geometry: number[][];
-    }>(`/maps/route-preview?from=${encodeURIComponent(payload.from)}&to=${encodeURIComponent(payload.to)}`, { headers: { Authorization: `Bearer ${token}` } })
+    }>(`/maps/route-preview?from=${encodeURIComponent(payload.from)}&to=${encodeURIComponent(payload.to)}`, { headers: { Authorization: `Bearer ${token}` } }),
+  getCameraOverview: (token: string) => request<CameraOverviewResponse>('/camera/overview', { headers: { Authorization: `Bearer ${token}` } }),
+  startMlCamera: (token: string) => request<{ started: boolean; available: boolean; message: string }>('/camera/ml-start', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }),
+  getMlCameraFrame: (token: string) => request<{ available: boolean; frame: string | null }>('/camera/ml-frame', { headers: { Authorization: `Bearer ${token}` } }),
+  simulateCameraData: (token: string) => request<{ ok: boolean; generatedAt: string }>('/camera/simulate', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
 };

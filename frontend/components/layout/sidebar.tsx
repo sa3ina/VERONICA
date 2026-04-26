@@ -1,25 +1,28 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BarChart3, BellRing, Cpu, LayoutDashboard, LogOut, Palette, Route, ShieldCheck, Sparkles, TrainFront } from 'lucide-react';
+import { BarChart3, BellRing, Camera, Cpu, LayoutDashboard, LogOut, Palette, Route, ShieldCheck, Sparkles, TrainFront } from 'lucide-react';
 import { useApp } from '@/components/providers/app-provider';
 import { cn } from '@/lib/utils';
 
 const userLinks = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, group: 'Workspace' },
   { href: '/dashboard/routes', label: 'Routes', icon: Route, group: 'Workspace' },
+  { href: '/camera', label: 'Bus Camera', icon: Camera, group: 'Workspace' },
   { href: '/dashboard/recommendations', label: 'Recommendations', icon: Sparkles, group: 'Intelligence' }
 ];
 
 const adminLinks = [
   { href: '/admin', label: 'Control Center', icon: ShieldCheck, group: 'Admin' },
   { href: '/admin/routes', label: 'Manage Routes', icon: Route, group: 'Admin' },
+  { href: '/camera', label: 'Camera Monitor', icon: Camera, group: 'Admin' },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, group: 'Insights' },
   { href: '/admin/alerts', label: 'Alerts', icon: BellRing, group: 'Insights' }
 ];
 
 const staffLinks = [
   { href: '/staff', label: 'AI Operations', icon: Cpu, group: 'Operations' },
+  { href: '/camera', label: 'Camera Monitor', icon: Camera, group: 'Operations' },
   { href: '/dashboard/routes', label: 'Live Routes', icon: Route, group: 'Operations' },
   { href: '/dashboard/recommendations', label: 'Recommendations', icon: Sparkles, group: 'Intelligence' }
 ];

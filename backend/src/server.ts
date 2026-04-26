@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
+import fs from 'fs';
+import path from 'path';
+import { spawn } from 'child_process';
 import { env } from './config';
 import { readDb, writeDb, dbFilePath } from './db';
 import { sign, verify } from './auth';
@@ -34,6 +37,70 @@ const auth = (req: any, res: any, next: any) => {
     next();
   } catch {
     return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+let mlStartPromise: Promise<{ started: boolean; available: boolean; message: string }> | null = null;
+
+const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const ensureMlServiceRunning = async () => {
+  const online = await fetchMlStatus();
+  if (online) {
+    return { started: false, available: true, message: 'already-running' };
+  }
+
+  if (mlStartPromise) return mlStartPromise;
+
+  mlStartPromise = (async () => {
+    const scriptPath = path.resolve(env.mlApiScriptPath);
+    if (!fs.existsSync(scriptPath)) {
+      return { started: false, available: false, message: `ml-script-not-found: ${scriptPath}` };
+    }
+
+    try {
+      const child = spawn(env.mlPythonBin, [scriptPath], {
+        cwd: path.dirname(scriptPath),
+        detached: true,
+        windowsHide: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+    } catch {
+      return { started: false, available: false, message: 'ml-process-spawn-failed' };
+    }
+
+    for (let i = 0; i < 16; i += 1) {
+      await waitMs(500);
+      const status = await fetchMlStatus();
+      if (status) {
+        return { started: true, available: true, message: 'started' };
+      }
+    }
+
+    return { started: true, available: false, message: 'started-but-not-ready' };
+  })().finally(() => {
+    mlStartPromise = null;
+  });
+
+  return mlStartPromise;
+};
+
+const fetchMlFrame = async () => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+  try {
+    const response = await fetch(env.mlFrameUrl, { signal: controller.signal });
+    if (!response.ok) return { available: false, frame: null };
+    const payload = (await response.json()) as { available?: boolean; frame?: string | null };
+    return {
+      available: Boolean(payload.available && payload.frame),
+      frame: payload.frame ?? null
+    };
+  } catch {
+    return { available: false, frame: null };
+  } finally {
+    clearTimeout(timer);
   }
 };
 
@@ -453,6 +520,141 @@ const resolveGlobalStopName = (routes: any[], place: string) => {
 
 const getCrowdReports = (db: any) => (Array.isArray(db.crowdReports) ? db.crowdReports : []);
 
+const CAMERA_INTERVAL_MS = 5 * 60 * 1000;
+const ML_CAMERA_INTERVAL_MS = 15 * 1000;
+
+const getCameraSnapshots = (db: any) => {
+  if (!Array.isArray(db.cameraSnapshots)) db.cameraSnapshots = [];
+  return db.cameraSnapshots as any[];
+};
+
+const azCameraStatus = (level: 'low' | 'medium' | 'high') => {
+  if (level === 'high') return 'Basa-basdır';
+  if (level === 'medium') return 'Medium';
+  return 'Az adam var';
+};
+
+const snapshotTone = (level: 'low' | 'medium' | 'high') => (level === 'high' ? 'danger' : level === 'medium' ? 'warning' : 'success');
+
+const applySnapshotToRoute = (route: any, occupancyPercent: number) => {
+  route.occupancy = occupancyPercent;
+  route.crowded = occupancyPercent >= 85;
+  route.delayRisk = occupancyPercent >= 85 ? 'high' : occupancyPercent >= 65 ? 'medium' : 'low';
+  route.status = occupancyPercent >= 85 ? 'busy' : occupancyPercent >= 65 ? 'watch' : 'stable';
+};
+
+const generateFakeCameraSnapshot = (route: any, index: number) => {
+  const hour = new Date().getHours();
+  const temporalBoost = getTemporalBoost(hour, isWeekdayDate());
+  const jitter = Math.round((Math.random() - 0.5) * 16);
+  const occupancyPercent = clamp(Math.round(route.occupancy + temporalBoost * 0.55 + jitter), 8, 99);
+  const level = levelFromOccupancy(occupancyPercent);
+  const capacity = Math.max(1, Number(route.capacity ?? 110));
+  const peopleCount = clamp(Math.round((occupancyPercent / 100) * capacity + (Math.random() - 0.5) * 6), 0, capacity + 15);
+
+  return {
+    id: `cam_${Date.now()}_${index + 1}`,
+    busId: route.code || `holbertonBus-${String(index + 1).padStart(2, '0')}`,
+    routeId: route.id,
+    routeName: route.name,
+    cameraId: `cam-${String(index + 1).padStart(2, '0')}`,
+    occupancyPercent,
+    peopleCount,
+    crowdLevel: level,
+    statusTextAz: azCameraStatus(level),
+    tone: snapshotTone(level),
+    confidence: Number((0.82 + Math.random() * 0.16).toFixed(2)),
+    timestamp: new Date().toISOString(),
+    source: 'holbertonBus-sim'
+  };
+};
+
+const parseMlCrowdLevel = (rawLevel?: string): 'low' | 'medium' | 'high' => {
+  const value = String(rawLevel ?? '').toLowerCase();
+  if (value.includes('çox') || value.includes('cox') || value.includes('six') || value.includes('sıx') || value.includes('high')) return 'high';
+  if (value.includes('orta') || value.includes('medium')) return 'medium';
+  return 'low';
+};
+
+const fetchMlStatus = async () => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+  try {
+    const response = await fetch(env.mlStatusUrl, { signal: controller.signal });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { count?: number; percent?: number; level?: string };
+    const occupancyPercent = clamp(Number(payload.percent ?? 0), 0, 100);
+    const peopleCount = Math.max(0, Math.round(Number(payload.count ?? 0)));
+    const crowdLevel = parseMlCrowdLevel(payload.level);
+    return {
+      occupancyPercent,
+      peopleCount,
+      crowdLevel
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+const buildMlCameraSnapshot = (route: any, index: number, ml: { occupancyPercent: number; peopleCount: number; crowdLevel: 'low' | 'medium' | 'high' }) => ({
+  id: `cam_${Date.now()}_${index + 1}`,
+  busId: route.code || `holbertonBus-${String(index + 1).padStart(2, '0')}`,
+  routeId: route.id,
+  routeName: route.name,
+  cameraId: `cam-ml-${String(index + 1).padStart(2, '0')}`,
+  occupancyPercent: ml.occupancyPercent,
+  peopleCount: ml.peopleCount,
+  crowdLevel: ml.crowdLevel,
+  statusTextAz: azCameraStatus(ml.crowdLevel),
+  tone: snapshotTone(ml.crowdLevel),
+  confidence: 0.98,
+  timestamp: new Date().toISOString(),
+  source: 'ml-model'
+});
+
+const resolveMlRouteId = (routes: any[]) => {
+  if (!routes.length) return '';
+  if (env.mlTargetRouteId) {
+    const found = routes.find((route: any) => route.id === env.mlTargetRouteId);
+    if (found) return found.id;
+  }
+  return routes[0].id;
+};
+
+const ensureCameraTelemetry = async (db: any, force = false) => {
+  const snapshots = getCameraSnapshots(db);
+  const latest = snapshots[snapshots.length - 1];
+  const latestAt = latest?.timestamp ? new Date(latest.timestamp).getTime() : 0;
+  const routes = Array.isArray(db.routes) ? db.routes.filter((route: any) => route.transportType === 'bus') : [];
+  const mlRouteId = resolveMlRouteId(routes);
+  const ml = await fetchMlStatus();
+  const intervalMs = ml ? ML_CAMERA_INTERVAL_MS : CAMERA_INTERVAL_MS;
+  const shouldGenerate = force || !latestAt || Number.isNaN(latestAt) || Date.now() - latestAt >= intervalMs;
+  if (!shouldGenerate) return false;
+
+  routes.forEach((route: any, index: number) => {
+    const snapshot = ml && route.id === mlRouteId ? buildMlCameraSnapshot(route, index, ml) : generateFakeCameraSnapshot(route, index);
+    snapshots.push(snapshot);
+    applySnapshotToRoute(route, snapshot.occupancyPercent);
+  });
+
+  db.cameraSnapshots = snapshots.slice(-400);
+  return true;
+};
+
+const latestSnapshotsByRoute = (db: any) => {
+  const latestByRoute = new Map<string, any>();
+  for (const item of getCameraSnapshots(db)) {
+    const prev = latestByRoute.get(item.routeId);
+    if (!prev || new Date(item.timestamp).getTime() >= new Date(prev.timestamp).getTime()) {
+      latestByRoute.set(item.routeId, item);
+    }
+  }
+  return Array.from(latestByRoute.values()).sort((a, b) => b.occupancyPercent - a.occupancyPercent);
+};
+
 const isWeekdayDate = (date?: string) => {
   if (!date) {
     const day = new Date().getDay();
@@ -572,6 +774,17 @@ const teamSchema = z.object({
   bio: z.string().min(8)
 });
 
+const cameraIngestSchema = z.object({
+  busId: z.string().min(2),
+  routeId: z.string().min(1),
+  cameraId: z.string().min(2).optional(),
+  timestamp: z.string().datetime().optional(),
+  peopleCount: z.number().min(0),
+  occupancyPercent: z.number().min(0).max(100),
+  confidence: z.number().min(0).max(1).optional(),
+  source: z.string().min(2).optional()
+});
+
 app.get('/', (_req, res) => res.json({ name: 'AZCON Smart Transit AI API', status: 'ok', database: dbFilePath, aiEnabled: env.aiEnabled }));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', aiEnabled: env.aiEnabled }));
 app.get('/api/public/overview', (_req, res) => {
@@ -643,6 +856,94 @@ app.put('/api/admin/site-settings', admin, (req, res) => {
 });
 
 app.get('/api/routes', auth, (_req, res) => res.json(readDb().routes));
+app.get('/api/camera/overview', auth, async (req: any, res) => {
+  const db = readDb();
+  const changed = await ensureCameraTelemetry(db);
+  const latest = latestSnapshotsByRoute(db);
+  if (changed) writeDb(db);
+
+  if (req.user?.role === 'user') {
+    const bus = latest[0] ?? null;
+    return res.json({
+      scope: 'single-bus',
+      bus,
+      generatedAt: new Date().toISOString()
+    });
+  }
+
+  const summary = {
+    total: latest.length,
+    high: latest.filter((item: any) => item.crowdLevel === 'high').length,
+    medium: latest.filter((item: any) => item.crowdLevel === 'medium').length,
+    low: latest.filter((item: any) => item.crowdLevel === 'low').length
+  };
+
+  res.json({
+    scope: 'fleet',
+    buses: latest,
+    summary,
+    generatedAt: new Date().toISOString()
+  });
+});
+
+app.get('/api/camera/ml-frame', auth, async (_req, res) => {
+  const result = await fetchMlFrame();
+  res.json(result);
+});
+
+app.post('/api/camera/ml-start', auth, async (_req, res) => {
+  const result = await ensureMlServiceRunning();
+  if (!result.available) {
+    return res.status(202).json(result);
+  }
+  return res.json(result);
+});
+
+app.post('/api/camera/ingest', staff, (req, res) => {
+  try {
+    const body = cameraIngestSchema.parse(req.body);
+    const db = readDb();
+    const snapshots = getCameraSnapshots(db);
+    const crowdLevel = levelFromOccupancy(body.occupancyPercent);
+    const item = {
+      id: `cam_${Date.now()}`,
+      busId: body.busId,
+      routeId: body.routeId,
+      routeName: db.routes.find((route: any) => route.id === body.routeId)?.name ?? body.routeId,
+      cameraId: body.cameraId ?? 'cam-external',
+      occupancyPercent: body.occupancyPercent,
+      peopleCount: body.peopleCount,
+      crowdLevel,
+      statusTextAz: azCameraStatus(crowdLevel),
+      tone: snapshotTone(crowdLevel),
+      confidence: Number((body.confidence ?? 0.9).toFixed(2)),
+      timestamp: body.timestamp ?? new Date().toISOString(),
+      source: body.source ?? 'ml-edge'
+    };
+
+    snapshots.push(item);
+    db.cameraSnapshots = snapshots.slice(-400);
+    const route = db.routes.find((routeItem: any) => routeItem.id === body.routeId);
+    if (route) applySnapshotToRoute(route, body.occupancyPercent);
+    writeDb(db);
+    res.status(201).json({ saved: true, snapshot: item });
+  } catch (e: any) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+app.post('/api/camera/simulate', staff, async (_req, res) => {
+  const db = readDb();
+  await ensureCameraTelemetry(db, true);
+  writeDb(db);
+  const latest = latestSnapshotsByRoute(db);
+  res.json({
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    buses: latest
+  });
+});
+
 app.post('/api/routes', admin, (req, res) => {
   try {
     const db = readDb();

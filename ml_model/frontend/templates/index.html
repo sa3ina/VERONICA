@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<title>Avtobus Monitor</title>
+<style>
+  body {
+    background: #0a0a0f;
+    color: #e8e8f0;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    margin: 0;
+  }
+
+  h1 { font-size: 1.6rem; margin-bottom: 8px; }
+  
+  .subtitle {
+    color: #666;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 48px;
+  }
+
+  /* Dairəvi göstərici */
+  .ring-wrap {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin-bottom: 24px;
+  }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: #1e1e2e; stroke-width: 14; }
+  .ring-fill {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+    stroke-dasharray: 565;
+    stroke-dashoffset: 565;
+    transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease;
+  }
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .ring-pct {
+    font-size: 2.8rem;
+    font-weight: bold;
+    transition: color 0.5s;
+  }
+  .ring-lbl { font-size: 0.65rem; color: #666; margin-top: 4px; }
+
+  /* Səviyyə badge */
+  .badge {
+    padding: 8px 28px;
+    border-radius: 100px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: 2px solid currentColor;
+    margin-bottom: 40px;
+    transition: color 0.4s;
+  }
+
+  /* Statistika kartları */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 40px;
+  }
+  .stat {
+    background: #13131a;
+    border: 1px solid #1e1e2e;
+    border-radius: 10px;
+    padding: 18px 12px;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 1.8rem;
+    font-weight: bold;
+  }
+  .stat-key {
+    font-size: 0.65rem;
+    color: #666;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Tarixçə */
+  .history { width: 100%; max-width: 480px; }
+  .history-title {
+    font-size: 0.7rem;
+    color: #666;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .h-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #13131a;
+    border: 1px solid #1e1e2e;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 0.72rem;
+    color: #666;
+    margin-bottom: 6px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pct { color: #e8e8f0; min-width: 42px; }
+  .ts  { margin-left: auto; font-size: 0.65rem; }
+
+  /* Canlı indikatoru */
+  .live {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: #666;
+    margin-bottom: 36px;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #00e676;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.2; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🚌 Avtobus Monitor</h1>
+<p class="subtitle">MAKSİMUM: {{ max_cap }} NƏFƏR</p>
+
+<div class="live">
+  <span class="live-dot"></span>
+  <span id="live-ts">Yüklənir...</span>
+</div>
+
+<div class="ring-wrap">
+  <svg width="200" height="200" viewBox="0 0 200 200">
+    <circle class="ring-track" cx="100" cy="100" r="90"/>
+    <circle class="ring-fill" id="ring" cx="100" cy="100" r="90"/>
+  </svg>
+  <div class="ring-center">
+    <div class="ring-pct" id="pct">0%</div>
+    <div class="ring-lbl">DOLULULUQ</div>
+  </div>
+</div>
+
+<div class="badge" id="badge">—</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-val" id="s-count">—</div>
+    <div class="stat-key">Nəfər</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="s-pct">—</div>
+    <div class="stat-key">Faiz</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="s-free">—</div>
+    <div class="stat-key">Boş yer</div>
+  </div>
+</div>
+
+<div class="history">
+  <div class="history-title">Son qeydlər</div>
+  <div id="h-list"></div>
+</div>
+
+<script>
+  const MAX = {{ max_cap }};
+  const CIRC = 2 * Math.PI * 90;   // dairənin perimetri
+  const CLR = { green: '#00e676', yellow: '#ffea00', red: '#ff1744' };
+
+  async function fetchStatus() {
+    try {
+      const d = await fetch('/status').then(r => r.json());
+      const color  = CLR[d.color] || CLR.green;
+      const offset = CIRC * (1 - d.percent / 100);
+
+      // Dairə
+      document.getElementById('ring').style.strokeDashoffset = offset;
+      document.getElementById('ring').style.stroke = color;
+
+      // Faiz mətn
+      const pct = document.getElementById('pct');
+      pct.textContent = d.percent + '%';
+      pct.style.color = color;
+
+      // Badge
+      const badge = document.getElementById('badge');
+      badge.textContent = d.level;
+      badge.style.color = color;
+
+      // Kartlar
+      document.getElementById('s-count').textContent = d.count;
+      document.getElementById('s-pct').textContent   = d.percent + '%';
+      document.getElementById('s-free').textContent  = Math.max(0, MAX - d.count);
+
+      // Vaxt
+      document.getElementById('live-ts').textContent =
+        'SON YENİLƏNMƏ: ' + new Date().toLocaleTimeString('az-AZ');
+
+    } catch(e) {}
+  }
+
+  async function fetchHistory() {
+    try {
+      const rows = await fetch('/history').then(r => r.json());
+      document.getElementById('h-list').innerHTML = rows.map(r => {
+        const dot = r.color === 'red'    ? '#ff1744' :
+                    r.color === 'yellow' ? '#ffea00' : '#00e676';
+        const ts  = r.ts.replace('T', ' ').slice(0, 19);
+        return `<div class="h-row">
+          <span class="dot" style="background:${dot}"></span>
+          <span class="pct">${r.percent}%</span>
+          <span>${r.level} (${r.count} nəfər)</span>
+          <span class="ts">${ts}</span>
+        </div>`;
+      }).join('');
+    } catch(e) {}
+  }
+
+  // İşə sal
+  fetchStatus();
+  fetchHistory();
+
+  // Hər 2 saniyədən bir → hər 5 dəqiqədən bir
+setInterval(fetchStatus,  5 * 60 * 1000);  // 300000 ms
+setInterval(fetchHistory, 5 * 60 * 1000);  // 300000 ms
+</script>
+</body>
+</html>
