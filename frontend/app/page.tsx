@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowRight, BrainCircuit, ShieldCheck, Waves, CheckCircle2, Activity, Globe2, Sparkles } from 'lucide-react';
 import { TopNav } from '@/components/layout/top-nav';
@@ -25,11 +26,35 @@ const trustPoints = [
   'Mock-safe AI fallback when network is offline'
 ];
 
+const demoAccessByRole = {
+  user: { email: 'user@azcon.ai', password: 'User123!', redirect: '/dashboard' },
+  staff: { email: 'staff@azcon.ai', password: 'Staff123!', redirect: '/staff' },
+  admin: { email: 'admin@azcon.ai', password: 'Admin123!', redirect: '/admin' }
+} as const;
+
+type DemoRole = keyof typeof demoAccessByRole;
+
 export default function HomePage() {
-  const { t } = useApp();
+  const router = useRouter();
+  const { t, setAuth } = useApp();
   const [overview, setOverview] = useState<any>(null);
+  const [demoLoadingRole, setDemoLoadingRole] = useState<DemoRole | null>(null);
 
   useEffect(() => { apiClient.getPublicOverview().then(setOverview).catch(() => undefined); }, []);
+
+  const handleDemoLogin = async (role: DemoRole) => {
+    const account = demoAccessByRole[role];
+    setDemoLoadingRole(role);
+    try {
+      const result = await apiClient.login({ email: account.email, password: account.password });
+      setAuth(result, { rememberMe: true });
+      router.push(account.redirect);
+    } catch {
+      router.push('/login');
+    } finally {
+      setDemoLoadingRole(null);
+    }
+  };
 
   const stats = overview ? [
     { label: 'Managed entities', value: overview.analytics?.overview?.managedEntities ?? '—' },
@@ -63,6 +88,18 @@ export default function HomePage() {
               <Link href='/dashboard'>
                 <Button variant='secondary' size='lg'>{t.hero.ctaSecondary}</Button>
               </Link>
+            </div>
+
+            <div className='mt-4 flex flex-wrap gap-2'>
+              <Button variant='outline' onClick={() => handleDemoLogin('user')} loading={demoLoadingRole === 'user'}>
+                User kimi daxil ol
+              </Button>
+              <Button variant='outline' onClick={() => handleDemoLogin('staff')} loading={demoLoadingRole === 'staff'}>
+                Staff kimi daxil ol
+              </Button>
+              <Button variant='outline' onClick={() => handleDemoLogin('admin')} loading={demoLoadingRole === 'admin'}>
+                Admin kimi daxil ol
+              </Button>
             </div>
 
             <ul className='mt-8 grid gap-2.5 sm:grid-cols-2'>
