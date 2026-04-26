@@ -959,7 +959,11 @@ app.post('/api/camera/vision-analyze', staff, async (req, res) => {
     // API key yoxla
     if (!env.openRouterApiKey) {
       console.log('[Vision] ERROR: OPENROUTER_API_KEY not configured');
-      return res.status(500).json({ message: 'OpenRouter API key konfiqurasiya edilməyib (.env faylında OPENROUTER_API_KEY əlavə edin)' });
+      return res.status(500).json({ 
+        success: false,
+        message: 'OpenRouter API key konfiqurasiya edilməyib',
+        error: 'OPENROUTER_API_KEY environment variable Render-də set olunmayıb. Render Dashboard → Environment → OPENROUTER_API_KEY=sk-or-v1-... əlavə edin'
+      });
     }
 
     console.log('[Vision] Frame analiz edilir...');
