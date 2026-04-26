@@ -109,5 +109,7 @@ export const apiClient = {
   simulateCameraData: (token: string) => request<{ ok: boolean; generatedAt: string }>('/camera/simulate', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }),
   analyzeWithVision: (token: string, payload: { imageBase64: string; routeId?: string; cameraId?: string }) =>
     request<{ success: boolean; count: number; crowdInfo: any; snapshot: any; rawResponse: string; error?: string }>('/camera/vision-analyze', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }),
-  getVisionStatus: (token: string) => request<{ apiKeyConfigured: boolean; model: string }>('/camera/vision-status', { headers: { Authorization: `Bearer ${token}` } })
+  getVisionStatus: (token: string) => request<{ apiKeyConfigured: boolean; model: string }>('/camera/vision-status', { headers: { Authorization: `Bearer ${token}` } }),
+  submitBrowserCount: (token: string, payload: { peopleCount: number; routeId?: string; cameraId?: string; source?: string }) =>
+    request<{ success: boolean; snapshot: any }>('/camera/browser-count', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) })
 };

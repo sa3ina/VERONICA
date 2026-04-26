@@ -932,6 +932,49 @@ app.post('/api/camera/ingest', staff, (req, res) => {
   }
 });
 
+// Browser-side TensorFlow.js detection nəticəsini DB-yə yaz (API key tələb etmir)
+app.post('/api/camera/browser-count', auth, (req: any, res) => {
+  try {
+    const { peopleCount, routeId, cameraId, source } = req.body ?? {};
+    const count = Math.max(0, Math.round(Number(peopleCount)));
+    if (!Number.isFinite(count)) {
+      return res.status(400).json({ message: 'peopleCount düzgün rəqəm olmalıdır' });
+    }
+
+    const db = readDb();
+    const snapshots = getCameraSnapshots(db);
+    const route = db.routes.find((r: any) => r.id === routeId) ?? db.routes.find((r: any) => r.transportType === 'bus');
+    const capacity = Math.max(1, Number(route?.capacity ?? 50));
+    const occupancyPercent = clamp(Math.round((count / capacity) * 100), 0, 100);
+    const crowdLevel = levelFromOccupancy(occupancyPercent);
+
+    const snapshot = {
+      id: `browser_${Date.now()}`,
+      busId: cameraId || route?.code || 'browser-cam',
+      routeId: route?.id ?? routeId ?? 'unknown',
+      routeName: route?.name ?? 'Browser camera',
+      cameraId: cameraId ?? 'cam-browser',
+      occupancyPercent,
+      peopleCount: count,
+      crowdLevel,
+      statusTextAz: azCameraStatus(crowdLevel),
+      tone: snapshotTone(crowdLevel),
+      confidence: 0.9,
+      timestamp: new Date().toISOString(),
+      source: source || 'browser-tfjs'
+    };
+
+    snapshots.push(snapshot);
+    db.cameraSnapshots = snapshots.slice(-400);
+    if (route) applySnapshotToRoute(route, occupancyPercent);
+    writeDb(db);
+
+    res.json({ success: true, snapshot });
+  } catch (e: any) {
+    res.status(500).json({ message: e.message || 'Snapshot yazılmadı' });
+  }
+});
+
 app.post('/api/camera/simulate', staff, async (_req, res) => {
   const db = readDb();
   await ensureCameraTelemetry(db, true);
