@@ -45,7 +45,7 @@ export function TopNav() {
         <div className='flex items-center gap-2'>
           <div className='hidden items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs sm:flex'>
             <Globe2 className='h-3.5 w-3.5 text-[color:var(--muted)]' />
-            <select value={locale} onChange={(e) => setLocale(e.target.value as typeof locale)} className='bg-transparent outline-none'>
+            <select value={locale} onChange={(e) => setLocale(e.target.value as typeof locale)} className='nav-select'>
               <option value='az'>AZ</option>
               <option value='en'>EN</option>
               <option value='tr'>TR</option>
@@ -53,7 +53,7 @@ export function TopNav() {
           </div>
           <div className='hidden items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs lg:flex'>
             <Palette className='h-3.5 w-3.5 text-[color:var(--muted)]' />
-            <select value={theme} onChange={(e) => setTheme(e.target.value as typeof theme)} className='bg-transparent capitalize outline-none'>
+            <select value={theme} onChange={(e) => setTheme(e.target.value as typeof theme)} className='nav-select capitalize'>
               {themes.map((item) => <option key={item} value={item} className='capitalize'>{item}</option>)}
             </select>
           </div>

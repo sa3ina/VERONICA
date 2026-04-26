@@ -412,6 +412,18 @@ a {
   color: var(--muted);
 }
 
+.nav-select {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+
+.nav-select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
 .input-base::placeholder {
   color: var(--muted);
 }
