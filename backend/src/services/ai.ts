@@ -16,6 +16,11 @@ export async function countPeopleWithVision(base64Image: string): Promise<{
   const timeout = setTimeout(() => controller.abort(), 30000); // 30 san timeout
 
   try {
+    console.log('[OpenRouter] API call starting...');
+    console.log('[OpenRouter] API Key exists:', !!env.openRouterApiKey);
+    console.log('[OpenRouter] Base URL:', env.openRouterBaseUrl);
+    console.log('[OpenRouter] Image data length:', base64Image?.length);
+    
     const response = await fetch(`${env.openRouterBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -47,15 +52,21 @@ export async function countPeopleWithVision(base64Image: string): Promise<{
       signal: controller.signal
     });
 
+    console.log('[OpenRouter] Response status:', response.status);
+
     if (!response.ok) {
       const text = await response.text();
+      console.error('[OpenRouter] Error response:', text);
       throw new Error(`OpenRouter API xətası: ${response.status} - ${text}`);
     }
 
     const data: any = await response.json();
+    console.log('[OpenRouter] Response data:', JSON.stringify(data, null, 2));
+    
     const content = data?.choices?.[0]?.message?.content;
     
     if (!content || typeof content !== 'string') {
+      console.error('[OpenRouter] Empty content in response');
       throw new Error('OpenRouter cavabı boşdur');
     }
 

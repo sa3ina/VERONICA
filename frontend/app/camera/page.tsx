@@ -206,7 +206,7 @@ export default function CameraPage() {
         setVisionResult({ count: result.count, level: result.crowdInfo.level });
         await load(); // Yeni data ilə yenilə
       } else {
-        setCameraError('Vision analizi uğursuz oldu');
+        setCameraError(`Vision analizi uğursuz oldu: ${result.error || 'Bilinməyən xəta'}`);
       }
     } catch (err: any) {
       const message = err?.message || 'Vision analizi xətası';
