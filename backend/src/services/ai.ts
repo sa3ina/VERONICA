@@ -1,76 +1,71 @@
 import { env } from '../config';
 import { readDb } from '../db';
 
-// Vision API üçün crowd counting
+// Vision API üçün crowd counting - Google Gemini (free tier)
 export async function countPeopleWithVision(base64Image: string): Promise<{
   count: number | null;
   rawResponse: string;
   success: boolean;
   error?: string;
 }> {
-  if (!env.openRouterApiKey) {
-    return { count: null, rawResponse: '', success: false, error: 'OPENROUTER_API_KEY yoxdur' };
+  // Google API key istifadə et (əvvəl OPENROUTER_API_KEY, sonra GOOGLE_API_KEY)
+  const apiKey = process.env.GOOGLE_API_KEY || env.openRouterApiKey;
+  
+  if (!apiKey) {
+    return { count: null, rawResponse: '', success: false, error: 'GOOGLE_API_KEY və ya OPENROUTER_API_KEY lazımdır. https://aistudio.google.com/app/apikey ilə əldə edin' };
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000); // 30 san timeout
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
-    console.log('[OpenRouter] API call starting...');
-    console.log('[OpenRouter] API Key exists:', !!env.openRouterApiKey);
-    console.log('[OpenRouter] Base URL:', env.openRouterBaseUrl);
-    console.log('[OpenRouter] Image data length:', base64Image?.length);
-    
-    const response = await fetch(`${env.openRouterBaseUrl}/chat/completions`, {
+    console.log('[Gemini] API call starting...');
+    console.log('[Gemini] Image data length:', base64Image?.length);
+
+    // Base64 data: prefix sil
+    const base64Data = base64Image.replace(/^data:image\/[^;]+;base64,/, '');
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.openRouterApiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': env.frontend,
-        'X-Title': 'VERONICA Crowd Counter'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout:free',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Bu şəkildə tam olaraq neçə adam görürsən? Yalnız rəqəm yaz, heç bir əlavə söz olmadan. Məsələn: "15" və ya "0" əgər adam yoxdursa.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}`,
-                  detail: 'auto'
-                }
+        contents: [{
+          parts: [
+            { text: 'Bu şəkildə tam olaraq neçə adam görürsən? Yalnız rəqəm yaz, heç bir əlavə söz olmadan. Məsələn: "15" və ya "0" əgər adam yoxdursa.' },
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: base64Data
               }
-            ]
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 10
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 10
+        }
       }),
       signal: controller.signal
     });
 
-    console.log('[OpenRouter] Response status:', response.status);
+    console.log('[Gemini] Response status:', response.status);
 
     if (!response.ok) {
       const text = await response.text();
-      console.error('[OpenRouter] Error response:', text);
-      throw new Error(`OpenRouter API xətası: ${response.status} - ${text}`);
+      console.error('[Gemini] Error response:', text);
+      throw new Error(`Gemini API xətası: ${response.status} - ${text}`);
     }
 
     const data: any = await response.json();
-    console.log('[OpenRouter] Response data:', JSON.stringify(data, null, 2));
-    
-    const content = data?.choices?.[0]?.message?.content;
-    
+    console.log('[Gemini] Response data:', JSON.stringify(data, null, 2));
+
+    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
     if (!content || typeof content !== 'string') {
-      console.error('[OpenRouter] Empty content in response');
-      throw new Error('OpenRouter cavabı boşdur');
+      console.error('[Gemini] Empty content in response');
+      throw new Error('Gemini cavabı boşdur');
     }
 
     // Rəqəmi extract et
@@ -83,11 +78,11 @@ export async function countPeopleWithVision(base64Image: string): Promise<{
     }
 
   } catch (error: any) {
-    return { 
-      count: null, 
-      rawResponse: '', 
-      success: false, 
-      error: error.message || 'Bilinməyən xəta' 
+    return {
+      count: null,
+      rawResponse: '',
+      success: false,
+      error: error.message || 'Bilinməyən xəta'
     };
   } finally {
     clearTimeout(timeout);

@@ -956,13 +956,14 @@ app.post('/api/camera/vision-analyze', staff, async (req, res) => {
       return res.status(400).json({ message: 'imageBase64 tələb olunur' });
     }
 
-    // API key yoxla
-    if (!env.openRouterApiKey) {
-      console.log('[Vision] ERROR: OPENROUTER_API_KEY not configured');
+    // API key yoxla (Google Gemini istifadə edir)
+    const googleKey = process.env.GOOGLE_API_KEY || env.openRouterApiKey;
+    if (!googleKey) {
+      console.log('[Vision] ERROR: GOOGLE_API_KEY not configured');
       return res.status(500).json({ 
         success: false,
-        message: 'OpenRouter API key konfiqurasiya edilməyib',
-        error: 'OPENROUTER_API_KEY environment variable Render-də set olunmayıb. Render Dashboard → Environment → OPENROUTER_API_KEY=sk-or-v1-... əlavə edin'
+        message: 'Google API key konfiqurasiya edilməyib',
+        error: 'GOOGLE_API_KEY environment variable Render-də set olunmayıb. https://aistudio.google.com/app/apikey ilə əldə edib Render Environment-ə əlavə edin'
       });
     }
 
