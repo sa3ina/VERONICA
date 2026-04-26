@@ -3,11 +3,11 @@ import { cn } from '@/lib/utils';
 export type CardVariant = 'default' | 'plain' | 'elevated' | 'outline' | 'gradient';
 
 const variants: Record<CardVariant, string> = {
-  default: 'glass shadow-elevated',
+  default: 'glass shadow-elevated card-hover',
   plain: 'bg-[var(--surface)] border border-[color:var(--border)]',
-  elevated: 'glass shadow-floating',
-  outline: 'bg-transparent border border-[color:var(--border-strong)]',
-  gradient: 'aurora shadow-glow'
+  elevated: 'glass shadow-floating card-hover',
+  outline: 'bg-transparent border border-[color:var(--border-strong)] hover:border-[#ccff00]/30',
+  gradient: 'aurora shadow-glow card-hover'
 };
 
 export function Card({
@@ -44,7 +44,7 @@ export function CardHeader({
     <div className={cn('mb-5 flex items-start justify-between gap-4', className)}>
       <div className='flex items-start gap-3'>
         {icon ? (
-          <div className='flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[var(--surface-2)] text-[color:var(--brand-secondary)]'>
+          <div className='flex h-10 w-10 items-center justify-center rounded-xl border border-[#ccff00]/30 bg-[var(--surface-2)] text-[#ccff00] shadow-neon-sm'>
             {icon}
           </div>
         ) : null}

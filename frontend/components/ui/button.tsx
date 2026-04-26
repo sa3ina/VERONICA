@@ -25,15 +25,15 @@ const sizes: Record<ButtonSize, string> = {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    'text-white shadow-elevated bg-[linear-gradient(135deg,var(--brand-from),var(--brand-to))] hover:shadow-glow hover:brightness-110 ring-1 ring-white/10',
+    'text-black font-bold shadow-elevated bg-[linear-gradient(135deg,#ccff00,#bfff00)] hover:shadow-neon-md hover:brightness-110 ring-1 ring-[#ccff00]/50 shadow-neon-sm',
   secondary:
-    'bg-[var(--surface-2)] text-[color:var(--text)] hover:bg-[var(--surface-3)] border border-[color:var(--border-strong)]',
+    'bg-[var(--surface-2)] text-[color:var(--text)] hover:bg-[var(--surface-3)] border border-[color:var(--border)] hover:border-[#ccff00]/30 hover:shadow-neon-sm',
   outline:
-    'bg-transparent text-[color:var(--text)] border border-[color:var(--border-strong)] hover:bg-[var(--surface)]',
+    'bg-transparent text-[color:var(--text)] border border-[color:var(--border-strong)] hover:border-[#ccff00]/50 hover:shadow-neon-sm hover:text-[#ccff00]',
   ghost:
-    'bg-transparent text-[color:var(--text-soft)] hover:text-[color:var(--text)] hover:bg-[var(--surface)]',
+    'bg-transparent text-[color:var(--text-soft)] hover:text-[#ccff00] hover:bg-[var(--surface)]',
   destructive:
-    'text-white bg-[linear-gradient(135deg,#e11d48,#f43f5e)] hover:brightness-110 ring-1 ring-rose-500/30 shadow-elevated'
+    'text-white bg-[linear-gradient(135deg,#ff3366,#ff6699)] hover:brightness-110 ring-1 ring-[#ff3366]/50 shadow-elevated'
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

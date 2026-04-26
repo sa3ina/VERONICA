@@ -95,10 +95,10 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       <Card className='p-8 md:p-10'>
         {/* Brand block */}
         <Link href='/' className='inline-flex items-center gap-3'>
-          <span className='flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border-strong)] bg-[var(--surface-2)]'>
-            <TrainFront className='h-4 w-4 text-[color:var(--brand-secondary)]' />
+          <span className='flex h-9 w-9 items-center justify-center rounded-xl border border-[#ccff00]/30 bg-black/40 shadow-neon-sm'>
+            <TrainFront className='h-4 w-4 text-[#ccff00]' />
           </span>
-          <span className='text-sm font-semibold tracking-tight'>AZCON Smart Transit</span>
+          <span className='text-sm font-semibold tracking-tight text-[#ccff00]'>Veronica AI</span>
         </Link>
 
         <div className='mt-8'>
@@ -252,14 +252,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
 
           <details className='rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[var(--surface)] p-3 text-xs text-[color:var(--text-soft)]'>
             <summary className='cursor-pointer font-semibold text-[color:var(--text)]'>Demo credentials</summary>
-            <p className='mt-2'>User: <span className='text-[color:var(--brand-secondary)]'>user@azcon.ai / User123!</span></p>
-            <p>Staff: <span className='text-[color:var(--brand-secondary)]'>staff@azcon.ai / Staff123!</span></p>
-            <p>Admin: <span className='text-[color:var(--brand-secondary)]'>admin@azcon.ai / Admin123!</span></p>
+            <p className='mt-2'>User: <span className='text-[#ccff00]'>user@veronica.ai / User123!</span></p>
+            <p>Staff: <span className='text-[#ccff00]'>staff@veronica.ai / Staff123!</span></p>
+            <p>Admin: <span className='text-[#ccff00]'>admin@veronica.ai / Admin123!</span></p>
           </details>
 
           <p className='text-center text-sm text-[color:var(--text-soft)]'>
             {isRegister ? 'Already have an account?' : 'Don’t have an account yet?'}{' '}
-            <Link className='font-semibold text-[color:var(--brand-secondary)] hover:underline' href={isRegister ? '/login' : '/register'}>
+            <Link className='font-semibold text-[#ccff00] hover:underline' href={isRegister ? '/login' : '/register'}>
               {isRegister ? 'Login' : 'Register'}
             </Link>
           </p>
@@ -288,7 +288,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 ['AI dispatch with safe fallback', 'Works offline-first']
               ].map(([t1, t2]) => (
                 <li key={t1} className='flex items-start gap-3'>
-                  <span className='mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--surface-2)] text-[color:var(--brand-secondary)]'>
+                  <span className='mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--surface-2)] text-[#ccff00] shadow-neon-sm'>
                     <Sparkles className='h-3.5 w-3.5' />
                   </span>
                   <div>

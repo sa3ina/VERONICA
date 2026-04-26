@@ -1,9 +1,9 @@
 export default {
-  brand: 'AZCON Smart Transit AI',
+  brand: 'Veronica AI',
   nav: { dashboard: 'Panel', routes: 'Hatlar', recommendations: 'Öneriler', admin: 'Yönetici', login: 'Giriş', register: 'Kayıt ol' },
   hero: {
     badge: 'Proaktif ulaşım zekası',
-    title: 'AZCON ekosistemi için akıllı transit yönetimi',
+    title: 'Veronica AI - Akıllı Ulaşım Zekası',
     subtitle: 'Yolcu akışı, doluluk ve gecikme riskini tahmin eden, operatör ve yolcu için karar desteği sunan premium bir MVP platformu.',
     ctaPrimary: 'Platformu aç',
     ctaSecondary: 'Demoyu gör'

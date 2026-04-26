@@ -15,12 +15,12 @@ export function TopNav() {
     >
       <div className='page-shell flex h-16 items-center justify-between gap-6'>
         <Link href='/' className='group flex items-center gap-3'>
-          <span className='relative flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border-strong)] bg-[var(--surface-2)] shadow-soft'>
-            <TrainFront className='h-4 w-4 text-[color:var(--brand-secondary)]' />
-            <span className='pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/5' />
+          <span className='relative flex h-9 w-9 items-center justify-center rounded-xl border border-[#ccff00]/50 bg-black/40 shadow-neon-sm'>
+            <TrainFront className='h-4 w-4 text-[#ccff00]' />
+            <span className='pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-[#ccff00]/20' />
           </span>
           <div className='leading-tight'>
-            <span className='text-sm font-semibold tracking-tight'>{t.brand}</span>
+            <span className='text-sm font-semibold tracking-tight text-[#ccff00]'>{t.brand}</span>
             <span className='block text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)]'>Smart Transit AI</span>
           </div>
         </Link>
@@ -35,7 +35,7 @@ export function TopNav() {
             <Link
               key={item.href}
               href={item.href}
-              className='rounded-md px-3 py-2 text-sm text-[color:var(--text-soft)] transition-colors hover:bg-[var(--surface)] hover:text-[color:var(--text)]'
+              className='rounded-md px-3 py-2 text-sm text-[color:var(--text-soft)] transition-all hover:bg-[var(--surface)] hover:text-[#ccff00]'
             >
               {item.label}
             </Link>

@@ -16,7 +16,7 @@ export function SiteSettingsManager({ initialSettings }: { initialSettings: Site
       maintenanceMode: false,
       registrationOpen: true,
       aiDispatchEnabled: true,
-      announcements: ['Smart transit mode is active.']
+      announcements: ['Veronica AI transit mode is active.']
     }
   );
   const [announcementInput, setAnnouncementInput] = useState('');

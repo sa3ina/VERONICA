@@ -49,8 +49,8 @@ export function Sidebar() {
           <TrainFront className='h-4 w-4 text-[color:var(--brand-secondary)]' />
         </span>
         <div className='leading-tight'>
-          <p className='text-sm font-semibold tracking-tight'>AZCON</p>
-          <p className='text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)]'>Smart Transit</p>
+          <p className='text-sm font-semibold tracking-tight text-[#ccff00]'>Veronica AI</p>
+          <p className='text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)]'>Intelligent Transit</p>
         </div>
       </Link>
 
@@ -62,7 +62,7 @@ export function Sidebar() {
             {initials}
           </span>
           <div className='min-w-0 leading-tight'>
-            <p className='truncate text-sm font-semibold'>{[user?.name, user?.surname].filter(Boolean).join(' ') || 'AZCON User'}</p>
+            <p className='truncate text-sm font-semibold'>{[user?.name, user?.surname].filter(Boolean).join(' ') || 'Veronica AI User'}</p>
             <p className='truncate text-xs text-[color:var(--muted)]'>{roleLabel}</p>
           </div>
         </div>

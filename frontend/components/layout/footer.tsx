@@ -42,8 +42,8 @@ export function Footer() {
                 <TrainFront className='h-4 w-4 text-[color:var(--brand-secondary)]' />
               </span>
               <div className='leading-tight'>
-                <p className='text-sm font-semibold'>AZCON Smart Transit AI</p>
-                <p className='text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)]'>Public infrastructure intelligence</p>
+                <p className='text-sm font-semibold text-[#ccff00]'>Veronica AI</p>
+                <p className='text-[10px] uppercase tracking-[0.22em] text-[color:var(--muted)]'>Intelligent Transit Operations</p>
               </div>
             </Link>
             <p className='mt-5 text-sm text-[color:var(--text-soft)]'>
@@ -81,7 +81,7 @@ export function Footer() {
 
         <div className='divider mt-12' />
         <div className='mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-[color:var(--muted)]'>
-          <p>© {new Date().getFullYear()} AZCON. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Veronica AI. All rights reserved.</p>
           <p className='inline-flex items-center gap-2'>
             <span className='dot bg-[color:var(--success)]' /> All systems operational
           </p>

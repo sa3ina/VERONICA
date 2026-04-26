@@ -70,9 +70,9 @@ export default function HomePage() {
       <section className='page-shell pb-16 pt-14 md:pt-20'>
         <div className='grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]'>
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <span className='inline-flex items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-xs'>
-              <span className='dot bg-[color:var(--success)] animate-pulse' />
-              <span className='font-medium tracking-wide text-[color:var(--text-soft)]'>{t.hero.badge}</span>
+            <span className='inline-flex items-center gap-2 rounded-full border border-[#ccff00]/30 bg-[var(--surface)] px-3 py-1.5 text-xs shadow-neon-sm'>
+              <span className='dot bg-[#ccff00] animate-pulse' />
+              <span className='font-medium tracking-wide text-[#ccff00]'>{t.hero.badge}</span>
             </span>
 
             <h1 className='mt-6 text-display'>
@@ -113,17 +113,9 @@ export default function HomePage() {
           </motion.div>
 
           {/* 3D centerpiece */}
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className='aurora p-3 md:p-4'>
-            <div className='relative overflow-hidden rounded-[20px] border border-[color:var(--border)]'>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className='aurora neon-border p-3 md:p-4'>
+            <div className='relative overflow-hidden rounded-[20px]'>
               <TransitHeroScene />
-              {/* Floating chips */}
-              <div className='pointer-events-none absolute left-4 top-4 flex flex-col gap-2'>
-                <span className='chip chip-info'><Activity className='h-3 w-3' /> Live ops</span>
-                <span className='chip chip-success'><Sparkles className='h-3 w-3' /> AI-ready</span>
-              </div>
-              <div className='pointer-events-none absolute bottom-4 right-4'>
-                <span className='chip chip-neutral'><Globe2 className='h-3 w-3' /> 3 modes simulated</span>
-              </div>
             </div>
           </motion.div>
         </div>
@@ -139,7 +131,7 @@ export default function HomePage() {
                 transition={{ delay: idx * 0.06 + 0.2 }}
                 className='relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-5'
               >
-                <span className='absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--brand-to),transparent)] opacity-60' />
+                <span className='absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,#ccff00,transparent)] opacity-60 shadow-neon-sm' />
                 <p className='text-overline'>{item.label}</p>
                 <p className='numeric mt-3 text-3xl font-semibold tracking-tight'>{item.value}</p>
               </motion.div>
@@ -159,14 +151,14 @@ export default function HomePage() {
           {features.map(({ title, text, icon: Icon }, idx) => (
             <motion.div key={title} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.08 + 0.1 }}>
               <Card className='h-full'>
-                <div className='flex h-11 w-11 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[var(--surface-2)]'>
-                  <Icon className='h-5 w-5 text-[color:var(--brand-secondary)]' />
+                <div className='flex h-11 w-11 items-center justify-center rounded-xl border border-[#ccff00]/30 bg-[var(--surface-2)] text-[#ccff00] shadow-neon-sm'>
+                  <Icon className='h-5 w-5' />
                 </div>
                 <h3 className='mt-5 text-h3'>{title}</h3>
                 <p className='mt-2 text-sm leading-6 text-[color:var(--text-soft)]'>{text}</p>
                 <div className='divider mt-5' />
                 <p className='mt-4 inline-flex items-center gap-1.5 text-xs text-[color:var(--text-soft)]'>
-                  <span className='dot bg-[color:var(--brand-secondary)]' /> Module enabled
+                  <span className='dot bg-[#ccff00] shadow-neon-sm' /> Module enabled
                 </p>
               </Card>
             </motion.div>
@@ -196,7 +188,7 @@ export default function HomePage() {
                 ['Alerts triage', 'Severity-aware queue'],
                 ['Site settings', 'Feature toggles & modes']
               ].map(([title, sub]) => (
-                <div key={title} className='rounded-xl border border-[color:var(--border)] bg-[var(--surface)] p-4'>
+                <div key={title} className='rounded-xl border border-[color:var(--border)] bg-[var(--surface)] p-4 hover:border-[#ccff00]/30 transition-all duration-300'>
                   <p className='text-sm font-semibold'>{title}</p>
                   <p className='mt-1 text-xs text-[color:var(--text-soft)]'>{sub}</p>
                 </div>
