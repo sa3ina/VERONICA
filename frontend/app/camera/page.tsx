@@ -44,6 +44,9 @@ export default function CameraPage() {
   const [uploadedImageName, setUploadedImageName] = useState<string>('');
   const [localDetecting, setLocalDetecting] = useState(false);
   const [localResult, setLocalResult] = useState<{ count: number; level: 'low' | 'medium' | 'high'; textAz: string } | null>(null);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [snapshotResult, setSnapshotResult] = useState<{ count: number; level: 'low' | 'medium' | 'high'; textAz: string } | null>(null);
+  const [snapshotAnalyzing, setSnapshotAnalyzing] = useState(false);
   const detector = usePeopleDetector();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -213,6 +216,48 @@ export default function CameraPage() {
     };
     reader.readAsDataURL(file);
   }, []);
+
+  // Kameradan snapshot al və local AI ilə analiz et
+  const takeSnapshotAndAnalyze = useCallback(async () => {
+    if (!cameraActive || !videoRef.current) {
+      setCameraError('Əvvəlcə kameranı aç');
+      return;
+    }
+    if (!detector.modelReady) {
+      setCameraError('AI modeli hələ yüklənir, bir neçə saniyə gözlə');
+      return;
+    }
+    const frameData = captureFrame();
+    if (!frameData) {
+      setCameraError('Snapshot alınmadı');
+      return;
+    }
+    setSnapshot(frameData);
+    setSnapshotAnalyzing(true);
+    setSnapshotResult(null);
+    setCameraError('');
+    try {
+      const result = await detector.detectFromBase64(frameData);
+      setSnapshotResult({ count: result.count, level: result.level, textAz: result.textAz });
+      if (token) {
+        try {
+          await apiClient.submitBrowserCount(token, {
+            peopleCount: result.count,
+            routeId: activeSnapshot?.routeId,
+            cameraId: 'tfjs-snapshot',
+            source: 'browser-tfjs-snapshot'
+          });
+          await load();
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err: any) {
+      setCameraError(err?.message || 'Snapshot analizi xətası');
+    } finally {
+      setSnapshotAnalyzing(false);
+    }
+  }, [cameraActive, detector, captureFrame, token, activeSnapshot?.routeId, load]);
 
   // Lokal TensorFlow.js ilə analiz (API key tələb etmir)
   const analyzeLocally = useCallback(async (source: 'upload' | 'camera') => {
@@ -393,6 +438,14 @@ export default function CameraPage() {
               )}
               {cameraActive && isOpsRole && (
                 <>
+                  <Button
+                    leftIcon={<ImageIcon className='h-4 w-4' />}
+                    onClick={takeSnapshotAndAnalyze}
+                    loading={snapshotAnalyzing}
+                    disabled={!cameraActive || !detector.modelReady}
+                  >
+                    {snapshotAnalyzing ? 'Analiz edir...' : 'Snapshot + Local AI'}
+                  </Button>
                   <Button 
                     variant='secondary' 
                     leftIcon={<Brain className='h-4 w-4' />}
@@ -400,7 +453,7 @@ export default function CameraPage() {
                     loading={visionAnalyzing}
                     disabled={!cameraActive}
                   >
-                    {visionAnalyzing ? 'AI analiz edir...' : 'AI ilə analiz et'}
+                    {visionAnalyzing ? 'Cloud AI...' : 'Cloud AI (Gemini)'}
                   </Button>
                   <Button
                     variant={autoAnalyze ? 'primary' : 'outline'}
@@ -441,6 +494,39 @@ export default function CameraPage() {
               ) : null}
             </div>
           </div>
+
+          {/* SNAPSHOT PREVIEW */}
+          {snapshot && (
+            <div className='rounded-xl border border-[color:var(--border)] bg-[var(--surface)] p-3'>
+              <div className='mb-3 flex items-center justify-between'>
+                <div className='flex items-center gap-2'>
+                  <ImageIcon className='h-4 w-4 text-[color:var(--success)]' />
+                  <span className='text-sm font-bold'>Snapshot</span>
+                  {snapshotResult && (
+                    <>
+                      <Badge tone={snapshotResult.level === 'high' ? 'danger' : snapshotResult.level === 'medium' ? 'warning' : 'success'} withDot>
+                        {snapshotResult.count} adam · {snapshotResult.textAz}
+                      </Badge>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setSnapshot(null); setSnapshotResult(null); }}
+                  className='text-xs text-[color:var(--text-soft)] hover:text-[color:var(--text)]'
+                >
+                  Bağla
+                </button>
+              </div>
+              <div className='relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-black/40'>
+                <img src={snapshot} alt='Camera snapshot' className='h-[260px] w-full object-contain' />
+                {snapshotAnalyzing && (
+                  <div className='absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm'>
+                    <span className='text-sm font-semibold text-white'>AI analiz edir...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {visionResult && (
             <div className='rounded-lg border border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/10 p-4'>
