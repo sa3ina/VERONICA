@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Users, Waves, RefreshCcw, Brain, Play, Timer, Upload, Image as ImageIcon } from 'lucide-react';
+import { Camera, Users, Waves, RefreshCcw, Upload, Image as ImageIcon } from 'lucide-react';
 import { ProtectedShell } from '@/components/layout/protected-shell';
 import { useApp } from '@/components/providers/app-provider';
 import { apiClient } from '@/services/api-client';
@@ -36,14 +36,6 @@ export default function CameraPage() {
   const [mlFrame, setMlFrame] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
-  const [visionAnalyzing, setVisionAnalyzing] = useState(false);
-  const [visionResult, setVisionResult] = useState<{ count: number; level: string } | null>(null);
-  const [autoAnalyze, setAutoAnalyze] = useState(false);
-  const [nextAnalysisIn, setNextAnalysisIn] = useState(300); // 5 dəqiqə = 300 saniyə
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [uploadedImageName, setUploadedImageName] = useState<string>('');
-  const [localDetecting, setLocalDetecting] = useState(false);
-  const [localResult, setLocalResult] = useState<{ count: number; level: 'low' | 'medium' | 'high'; textAz: string } | null>(null);
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [snapshotResult, setSnapshotResult] = useState<{ count: number; level: 'low' | 'medium' | 'high'; textAz: string } | null>(null);
   const [snapshotAnalyzing, setSnapshotAnalyzing] = useState(false);
@@ -52,8 +44,6 @@ export default function CameraPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const autoAnalyzeTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -196,43 +186,12 @@ export default function CameraPage() {
     ? Boolean(mlSnapshot)
     : activeSnapshot?.source === 'ml-model';
 
-  // Şəkil yüklə
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setCameraError('Yalnız şəkil faylı yükləmək olar');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result;
-      if (typeof result === 'string') {
-        setUploadedImage(result);
-        setUploadedImageName(file.name);
-        setCameraError('');
-        setVisionResult(null);
-      }
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  // Kameradan snapshot al və local AI ilə analiz et
-  const takeSnapshotAndAnalyze = useCallback(async () => {
-    if (!cameraActive || !videoRef.current) {
-      setCameraError('Əvvəlcə kameranı aç');
-      return;
-    }
+  // Snapshot-ı local AI ilə analiz et (həm kamera frame, həm upload)
+  const runAnalysis = useCallback(async (frameData: string, cameraIdLabel: string) => {
     if (!detector.modelReady) {
       setCameraError('AI modeli hələ yüklənir, bir neçə saniyə gözlə');
       return;
     }
-    const frameData = captureFrame();
-    if (!frameData) {
-      setCameraError('Snapshot alınmadı');
-      return;
-    }
-    setSnapshot(frameData);
     setSnapshotAnalyzing(true);
     setSnapshotResult(null);
     setCameraError('');
@@ -244,139 +203,56 @@ export default function CameraPage() {
           await apiClient.submitBrowserCount(token, {
             peopleCount: result.count,
             routeId: activeSnapshot?.routeId,
-            cameraId: 'tfjs-snapshot',
-            source: 'browser-tfjs-snapshot'
-          });
-          await load();
-        } catch {
-          // ignore
-        }
-      }
-    } catch (err: any) {
-      setCameraError(err?.message || 'Snapshot analizi xətası');
-    } finally {
-      setSnapshotAnalyzing(false);
-    }
-  }, [cameraActive, detector, captureFrame, token, activeSnapshot?.routeId, load]);
-
-  // Lokal TensorFlow.js ilə analiz (API key tələb etmir)
-  const analyzeLocally = useCallback(async (source: 'upload' | 'camera') => {
-    if (!detector.modelReady) {
-      setCameraError('AI modeli hələ yüklənir, bir neçə saniyə gözlə');
-      return;
-    }
-    setLocalDetecting(true);
-    setCameraError('');
-    try {
-      let result;
-      if (source === 'upload') {
-        if (!uploadedImage) return;
-        result = await detector.detectFromBase64(uploadedImage);
-      } else {
-        if (!videoRef.current || !cameraActive) {
-          setCameraError('Əvvəlcə kameranı aç');
-          return;
-        }
-        result = await detector.detect(videoRef.current);
-      }
-      setLocalResult({ count: result.count, level: result.level, textAz: result.textAz });
-      // Backend-ə yaz
-      if (token) {
-        try {
-          await apiClient.submitBrowserCount(token, {
-            peopleCount: result.count,
-            routeId: activeSnapshot?.routeId,
-            cameraId: source === 'upload' ? 'tfjs-upload' : 'tfjs-camera',
+            cameraId: cameraIdLabel,
             source: 'browser-tfjs'
           });
           await load();
         } catch {
-          // continue, UI hələ də işləsin
+          // ignore - UI hələ də işləsin
         }
       }
     } catch (err: any) {
-      setCameraError(err?.message || 'Lokal analiz xətası');
+      setCameraError(err?.message || 'Analiz xətası');
     } finally {
-      setLocalDetecting(false);
+      setSnapshotAnalyzing(false);
     }
-  }, [detector, uploadedImage, cameraActive, token, activeSnapshot?.routeId, load]);
+  }, [detector, token, activeSnapshot?.routeId, load]);
 
-  // Yüklənmiş şəkili analiz et
-  const analyzeUploadedImage = useCallback(async () => {
-    if (!token || !uploadedImage) return;
-    setVisionAnalyzing(true);
-    setCameraError('');
-    try {
-      const result = await apiClient.analyzeWithVision(token, {
-        imageBase64: uploadedImage,
-        routeId: activeSnapshot?.routeId,
-        cameraId: 'uploaded-image'
-      });
-      if (result.success) {
-        setVisionResult({ count: result.count, level: result.crowdInfo.level });
-        await load();
-      } else {
-        setCameraError(`Analiz uğursuz: ${result.error || 'Bilinməyən xəta'}`);
+  // Şəkil yüklə və dərhal analiz et
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setCameraError('Yalnız şəkil faylı yükləmək olar');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') {
+        setSnapshot(result);
+        setSnapshotResult(null);
+        setCameraError('');
+        runAnalysis(result, 'tfjs-upload');
       }
-    } catch (err: any) {
-      setCameraError(err?.message || 'Şəkil analizi xətası');
-    } finally {
-      setVisionAnalyzing(false);
-    }
-  }, [token, uploadedImage, load]);
+    };
+    reader.readAsDataURL(file);
+  }, [runAnalysis]);
 
-  // OpenRouter Vision ilə analiz et
-  const analyzeWithVision = useCallback(async () => {
-    if (!token || !cameraActive) return;
+  // Kameradan snapshot al və local AI ilə analiz et
+  const takeSnapshotAndAnalyze = useCallback(async () => {
+    if (!cameraActive || !videoRef.current) {
+      setCameraError('Əvvəlcə kameranı aç');
+      return;
+    }
     const frameData = captureFrame();
     if (!frameData) {
-      setCameraError('Frame çəkilmədi');
+      setCameraError('Snapshot alınmadı');
       return;
     }
-    setVisionAnalyzing(true);
-    setCameraError('');
-    try {
-      const result = await apiClient.analyzeWithVision(token, {
-        imageBase64: frameData,
-        routeId: activeSnapshot?.routeId,
-        cameraId: selectedDeviceId || 'browser-camera'
-      });
-      if (result.success) {
-        setVisionResult({ count: result.count, level: result.crowdInfo.level });
-        await load(); // Yeni data ilə yenilə
-      } else {
-        setCameraError(`Vision analizi uğursuz oldu: ${result.error || 'Bilinməyən xəta'}`);
-      }
-    } catch (err: any) {
-      const message = err?.message || 'Vision analizi xətası';
-      console.error('[Vision Error]', err);
-      setCameraError(message);
-    } finally {
-      setVisionAnalyzing(false);
-    }
-  }, [token, cameraActive, captureFrame, activeSnapshot?.routeId, selectedDeviceId, load]);
-
-  // Auto 5 dəqiqəlik analiz
-  useEffect(() => {
-    if (!autoAnalyze || !cameraActive) {
-      if (autoAnalyzeTimerRef.current) clearInterval(autoAnalyzeTimerRef.current);
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-      return;
-    }
-    // Hər 5 dəqiqədən bir analiz
-    autoAnalyzeTimerRef.current = setInterval(() => {
-      analyzeWithVision();
-      setNextAnalysisIn(300);
-    }, 5 * 60 * 1000);
-    // Countdown timer
-    countdownTimerRef.current = setInterval(() => {
-      setNextAnalysisIn(prev => prev > 0 ? prev - 1 : 300);
-    }, 1000);
-    return () => {
-      if (autoAnalyzeTimerRef.current) clearInterval(autoAnalyzeTimerRef.current);
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    };
-  }, [autoAnalyze, cameraActive, analyzeWithVision]);
+    setSnapshot(frameData);
+    await runAnalysis(frameData, 'tfjs-camera');
+  }, [cameraActive, captureFrame, runAnalysis]);
 
   const crowdedSummary = useMemo(() => {
     const summary = data?.summary;
@@ -436,33 +312,36 @@ export default function CameraPage() {
               ) : (
                 <Button onClick={startLocalCamera} loading={mlBooting}>Kameranı aç</Button>
               )}
-              {cameraActive && isOpsRole && (
+              {isOpsRole && (
                 <>
+                  <input
+                    ref={fileInputRef}
+                    type='file'
+                    accept='image/*'
+                    onChange={handleFileUpload}
+                    className='hidden'
+                  />
+                  {cameraActive && (
+                    <Button
+                      leftIcon={<ImageIcon className='h-4 w-4' />}
+                      onClick={takeSnapshotAndAnalyze}
+                      loading={snapshotAnalyzing}
+                      disabled={!cameraActive || !detector.modelReady}
+                    >
+                      {snapshotAnalyzing ? 'Analiz edir...' : 'Snapshot + AI'}
+                    </Button>
+                  )}
                   <Button
-                    leftIcon={<ImageIcon className='h-4 w-4' />}
-                    onClick={takeSnapshotAndAnalyze}
-                    loading={snapshotAnalyzing}
-                    disabled={!cameraActive || !detector.modelReady}
+                    variant='secondary'
+                    leftIcon={<Upload className='h-4 w-4' />}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={snapshotAnalyzing || !detector.modelReady}
                   >
-                    {snapshotAnalyzing ? 'Analiz edir...' : 'Snapshot + Local AI'}
+                    Şəkil yüklə
                   </Button>
-                  <Button 
-                    variant='secondary' 
-                    leftIcon={<Brain className='h-4 w-4' />}
-                    onClick={analyzeWithVision}
-                    loading={visionAnalyzing}
-                    disabled={!cameraActive}
-                  >
-                    {visionAnalyzing ? 'Cloud AI...' : 'Cloud AI (Gemini)'}
-                  </Button>
-                  <Button
-                    variant={autoAnalyze ? 'primary' : 'outline'}
-                    leftIcon={<Timer className='h-4 w-4' />}
-                    onClick={() => setAutoAnalyze(!autoAnalyze)}
-                    disabled={!cameraActive}
-                  >
-                    {autoAnalyze ? `Auto: ${Math.floor(nextAnalysisIn / 60)}:${String(nextAnalysisIn % 60).padStart(2, '0')}` : 'Auto 5 dəqiqə'}
-                  </Button>
+                  <Badge tone={detector.modelReady ? 'success' : detector.modelLoading ? 'warning' : 'neutral'} withDot>
+                    {detector.modelReady ? 'AI hazır' : detector.modelLoading ? 'AI yüklənir' : 'AI gözləyir'}
+                  </Badge>
                 </>
               )}
             </div>
@@ -485,11 +364,17 @@ export default function CameraPage() {
                 <Badge tone={mlConnected ? 'success' : 'warning'} withDot>{mlConnected ? 'ML aktiv' : 'ML görünmür'}</Badge>
               </div>
 
-              {activeSnapshot ? (
+              {(snapshotResult || activeSnapshot) ? (
                 <div className='pointer-events-none absolute bottom-3 left-3 right-3 grid gap-2 sm:grid-cols-3'>
-                  <span className='chip chip-neutral justify-center'>ML Count: {activeSnapshot.peopleCount}</span>
-                  <span className='chip chip-info justify-center'>Doluluq: {activeSnapshot.occupancyPercent}%</span>
-                  <span className='chip chip-success justify-center'>{activeSnapshot.statusTextAz}</span>
+                  <span className='chip chip-neutral justify-center'>
+                    AI Count: {snapshotResult ? snapshotResult.count : activeSnapshot?.peopleCount}
+                  </span>
+                  <span className='chip chip-info justify-center'>
+                    Doluluq: {activeSnapshot?.occupancyPercent ?? 0}%
+                  </span>
+                  <span className='chip chip-success justify-center'>
+                    {snapshotResult ? snapshotResult.textAz : activeSnapshot?.statusTextAz}
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -528,148 +413,29 @@ export default function CameraPage() {
             </div>
           )}
 
-          {visionResult && (
-            <div className='rounded-lg border border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/10 p-4'>
-              <div className='flex items-center gap-2'>
-                <Brain className='h-5 w-5 text-[color:var(--brand-primary)]' />
-                <span className='font-semibold'>OpenRouter AI Nəticəsi:</span>
-                <span className='text-lg font-bold'>{visionResult.count} adam</span>
-                <Badge tone={visionResult.level === 'high' ? 'danger' : visionResult.level === 'medium' ? 'warning' : 'success'}>
-                  {visionResult.level === 'high' ? 'Çox sıx' : visionResult.level === 'medium' ? 'Orta' : 'Az'}
-                </Badge>
-              </div>
-            </div>
-          )}
-
-          {activeSnapshot ? (
+          {(snapshotResult || activeSnapshot) ? (
             <div className='grid gap-3 sm:grid-cols-4'>
               <div className='rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3'>
                 <p className='text-overline'>Mənbə</p>
-                <p className='mt-1 text-sm font-semibold'>{activeSnapshot.source}</p>
-              </div>
-              <div className='rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3'>
-                <p className='text-overline'>Bus</p>
-                <p className='mt-1 text-sm font-semibold'>{activeSnapshot.busId}</p>
+                <p className='mt-1 text-sm font-semibold'>{snapshotResult ? 'browser-tfjs' : activeSnapshot?.source}</p>
               </div>
               <div className='rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3'>
                 <p className='text-overline'>Adam sayı</p>
-                <p className='numeric mt-1 text-sm font-semibold'>{activeSnapshot.peopleCount}</p>
+                <p className='numeric mt-1 text-sm font-semibold'>{snapshotResult ? snapshotResult.count : activeSnapshot?.peopleCount}</p>
               </div>
               <div className='rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3'>
-                <p className='text-overline'>Son update</p>
-                <p className='mt-1 text-xs font-semibold'>{formatDate(activeSnapshot.timestamp)}</p>
+                <p className='text-overline'>Status</p>
+                <p className='mt-1 text-sm font-semibold'>{snapshotResult ? snapshotResult.textAz : activeSnapshot?.statusTextAz}</p>
+              </div>
+              <div className='rounded-lg border border-[color:var(--border)] bg-[var(--surface)] p-3'>
+                <p className='text-overline'>Bus</p>
+                <p className='mt-1 text-sm font-semibold'>{activeSnapshot?.busId ?? '—'}</p>
               </div>
             </div>
           ) : null}
 
           {cameraError ? <p className='text-sm text-[color:var(--danger)]'>{cameraError}</p> : null}
         </Card>
-
-        {/* IMAGE UPLOAD - test/demo və deploy üçün */}
-        {isOpsRole && (
-          <Card className='space-y-4 p-5'>
-            <div className='flex flex-wrap items-start justify-between gap-3'>
-              <SectionHeading
-                overline='Image upload'
-                title='Şəkil yüklə və analiz et'
-                description='Kamera əvəzinə hazır şəkil yüklə → AI adam sayını çıxarır və doluluq dataya yazılır.'
-              />
-              <Badge tone={detector.modelReady ? 'success' : detector.modelLoading ? 'warning' : 'neutral'} withDot>
-                {detector.modelReady ? 'TF.js model hazır' : detector.modelLoading ? 'Model yüklənir...' : 'Model gözləyir'}
-              </Badge>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type='file'
-              accept='image/*'
-              onChange={handleFileUpload}
-              className='hidden'
-            />
-
-            <div className='flex flex-wrap items-center gap-3'>
-              <Button
-                variant='outline'
-                leftIcon={<Upload className='h-4 w-4' />}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {uploadedImage ? 'Başqa şəkil seç' : 'Şəkil seç'}
-              </Button>
-              {uploadedImage && (
-                <>
-                  <Button
-                    leftIcon={<Brain className='h-4 w-4' />}
-                    onClick={() => analyzeLocally('upload')}
-                    loading={localDetecting}
-                    disabled={!detector.modelReady}
-                  >
-                    {localDetecting ? 'AI analiz edir...' : 'Local AI (pulsuz)'}
-                  </Button>
-                  <Button
-                    variant='secondary'
-                    leftIcon={<Brain className='h-4 w-4' />}
-                    onClick={analyzeUploadedImage}
-                    loading={visionAnalyzing}
-                  >
-                    {visionAnalyzing ? 'Cloud AI...' : 'Cloud AI (Gemini)'}
-                  </Button>
-                  <Button
-                    variant='ghost'
-                    onClick={() => {
-                      setUploadedImage(null);
-                      setUploadedImageName('');
-                      setVisionResult(null);
-                      setLocalResult(null);
-                    }}
-                  >
-                    Sil
-                  </Button>
-                </>
-              )}
-              {uploadedImageName && (
-                <span className='text-xs text-[color:var(--text-soft)]'>
-                  <ImageIcon className='inline h-3 w-3' /> {uploadedImageName}
-                </span>
-              )}
-            </div>
-
-            {uploadedImage && (
-              <div className='relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-black/30'>
-                <img src={uploadedImage} alt='Uploaded' className='h-[320px] w-full object-contain' />
-                {(localResult || visionResult) && (
-                  <div className='absolute right-3 top-3 flex flex-col gap-2'>
-                    {localResult && (
-                      <div className='flex items-center gap-2 rounded-lg border border-[color:var(--success)] bg-[var(--bg-alt)]/90 px-3 py-2 backdrop-blur'>
-                        <Brain className='h-4 w-4 text-[color:var(--success)]' />
-                        <span className='text-xs font-semibold'>Local:</span>
-                        <span className='text-sm font-bold'>{localResult.count} adam</span>
-                        <Badge tone={localResult.level === 'high' ? 'danger' : localResult.level === 'medium' ? 'warning' : 'success'} withDot>
-                          {localResult.textAz}
-                        </Badge>
-                      </div>
-                    )}
-                    {visionResult && (
-                      <div className='flex items-center gap-2 rounded-lg border border-[color:var(--brand-from)] bg-[var(--bg-alt)]/90 px-3 py-2 backdrop-blur'>
-                        <Brain className='h-4 w-4 text-[color:var(--brand-from)]' />
-                        <span className='text-xs font-semibold'>Gemini:</span>
-                        <span className='text-sm font-bold'>{visionResult.count} adam</span>
-                        <Badge tone={visionResult.level === 'high' ? 'danger' : visionResult.level === 'medium' ? 'warning' : 'success'} withDot>
-                          {visionResult.level === 'high' ? 'Çox sıx' : visionResult.level === 'medium' ? 'Orta' : 'Az'}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!uploadedImage && (
-              <div className='flex h-[160px] items-center justify-center rounded-xl border-2 border-dashed border-[color:var(--border-strong)] bg-[var(--surface)] text-sm text-[color:var(--text-soft)]'>
-                Test üçün avtobus daxili şəkli yüklə (jpg, png)
-              </div>
-            )}
-          </Card>
-        )}
 
         {apiError ? (
           <Card className='border-[color:color-mix(in_srgb,var(--warning)_45%,transparent)] p-4 text-sm text-[color:var(--text-soft)]'>
