@@ -34,14 +34,14 @@ function applyThemeToDocument(theme: ThemePreset) {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('az');
-  const [theme, setThemeState] = useState<ThemePreset>('dark');
+  const [theme, setThemeState] = useState<ThemePreset>('lava');
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const storedLocale = (localStorage.getItem('azcon_locale') as Locale | null) ?? 'az';
-    const storedTheme = (localStorage.getItem('azcon_theme') as ThemePreset | null) ?? 'dark';
+    const storedTheme = (localStorage.getItem('azcon_theme') as ThemePreset | null) ?? 'lava';
     const raw = localStorage.getItem('azcon_auth') ?? sessionStorage.getItem('azcon_auth');
     const remembered = localStorage.getItem('azcon_remember_me') === 'true';
     setLocaleState(storedLocale);

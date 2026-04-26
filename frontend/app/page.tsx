@@ -68,14 +68,9 @@ export default function HomePage() {
 
       {/* HERO */}
       <section className='page-shell pb-16 pt-14 md:pt-20'>
-        <div className='grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]'>
+        <div className='grid items-start gap-10 lg:grid-cols-[1.05fr_0.95fr]'>
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <span className='inline-flex items-center gap-2 rounded-full border border-[#ccff00]/30 bg-[var(--surface)] px-3 py-1.5 text-xs shadow-neon-sm'>
-              <span className='dot bg-[#ccff00] animate-pulse' />
-              <span className='font-medium tracking-wide text-[#ccff00]'>{t.hero.badge}</span>
-            </span>
-
-            <h1 className='mt-6 text-display'>
+            <h1 className='text-display'>
               <span className='text-gradient'>{t.hero.title}</span>
             </h1>
 
@@ -113,10 +108,8 @@ export default function HomePage() {
           </motion.div>
 
           {/* 3D centerpiece */}
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className='aurora neon-border p-3 md:p-4'>
-            <div className='relative overflow-hidden rounded-[20px]'>
-              <TransitHeroScene />
-            </div>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+            <TransitHeroScene />
           </motion.div>
         </div>
 

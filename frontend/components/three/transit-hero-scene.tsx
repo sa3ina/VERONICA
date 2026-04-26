@@ -222,7 +222,7 @@ function MovingLaneMarkers() {
 
 export function TransitHeroScene() {
   return (
-    <div className='relative h-[420px] w-full overflow-hidden rounded-[24px] border border-[#ccff00]/20 bg-midnight-800'>
+    <div className='relative h-[460px] w-full overflow-hidden rounded-[28px]'>
       {/* Background gradient */}
       <div className='absolute inset-0' style={{
         background: 'radial-gradient(80% 60% at 50% 0%, rgba(204, 255, 0, 0.15), transparent 60%), radial-gradient(60% 40% at 80% 100%, rgba(139, 92, 246, 0.1), transparent 60%), linear-gradient(180deg, #0a0a0f 0%, #07070a 100%)'

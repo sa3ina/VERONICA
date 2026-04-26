@@ -1,9 +1,10 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Space_Grotesk, Orbitron } from 'next/font/google';
 import { AppProvider } from '@/components/providers/app-provider';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-sans', display: 'swap', weight: ['300', '400', '500', '600', '700'] });
+const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-display', display: 'swap', weight: ['400', '500', '600', '700', '800', '900'] });
 
 export const metadata: Metadata = {
   title: 'Veronica AI — Intelligent Transit Operations',
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang='en' data-theme='midnight' className={inter.variable}>
+    <html lang='en' data-theme='lava' className={`${spaceGrotesk.variable} ${orbitron.variable}`}>
       <body className='font-sans'>
         <AppProvider>{children}</AppProvider>
       </body>

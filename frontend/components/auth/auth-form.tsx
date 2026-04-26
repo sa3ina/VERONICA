@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck, Sparkles, TrainFront, AlertCircle } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck, Sparkles, AlertCircle } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiClient } from '@/services/api-client';
@@ -95,10 +96,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       <Card className='p-8 md:p-10'>
         {/* Brand block */}
         <Link href='/' className='inline-flex items-center gap-3'>
-          <span className='flex h-9 w-9 items-center justify-center rounded-xl border border-[#ccff00]/30 bg-black/40 shadow-neon-sm'>
-            <TrainFront className='h-4 w-4 text-[#ccff00]' />
-          </span>
-          <span className='text-sm font-semibold tracking-tight text-[#ccff00]'>Veronica AI</span>
+          <Logo size={36} />
+          <span className='font-display text-base font-bold tracking-wide text-[color:var(--text)]'>Veronica AI</span>
         </Link>
 
         <div className='mt-8'>
