@@ -7,7 +7,6 @@ import { KpiGrid } from '@/components/dashboard/kpi-grid';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { useApp } from '@/components/providers/app-provider';
 import { apiClient } from '@/services/api-client';
-import { TeamManager } from '@/components/admin/team-manager';
 import { SiteSettingsManager } from '@/components/admin/site-settings-manager';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader, SectionHeading } from '@/components/ui/section-heading';
@@ -32,7 +31,7 @@ export default function AdminPage() {
         <PageHeader
           overline='Control center'
           title='Admin overview'
-          description='Executive view of KPIs, network risk, feature toggles and team management.'
+          description='Executive view of KPIs, network risk and feature toggles.'
           action={<Badge tone='brand' withDot><ShieldCheck className='h-3 w-3' /> Admin access</Badge>}
         />
 
@@ -49,11 +48,6 @@ export default function AdminPage() {
         <section className='space-y-5'>
           <SectionHeading overline='Configuration' title='Site feature toggles' description='Enterprise feature flags. Effective immediately across surfaces.' />
           <SiteSettingsManager initialSettings={siteSettings} />
-        </section>
-
-        <section className='space-y-5'>
-          <SectionHeading overline='People' title='Team spotlight' description='CRUD-managed team members surfaced on the public landing.' />
-          <TeamManager team={data?.team ?? []} />
         </section>
       </div>
     </ProtectedShell>

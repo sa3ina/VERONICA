@@ -53,10 +53,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setToken(parsed.token);
       setCookie('azcon_role', parsed.user.role, remembered ? 7 : undefined);
       setCookie('azcon_token', parsed.token, remembered ? 7 : undefined);
-      if (parsed.user.theme) {
-        setThemeState(parsed.user.theme);
-        applyThemeToDocument(parsed.user.theme);
-      }
     }
     setIsHydrated(true);
   }, []);
@@ -100,7 +96,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setCookie('azcon_role', payload.user.role, rememberMe ? 7 : undefined);
     setCookie('azcon_token', payload.token, rememberMe ? 7 : undefined);
-    if (payload.user.theme) setTheme(payload.user.theme);
   };
 
   const value = useMemo(

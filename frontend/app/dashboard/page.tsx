@@ -55,7 +55,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            <KpiGrid items={data.stats} />
+            <KpiGrid items={(data.stats || []).filter((s: any) => !/team\s*members?/i.test(s.label))} />
 
             <div className='grid gap-6 xl:grid-cols-[1.2fr_0.8fr]'>
               <TrendChart title='Density trend' data={trendData} dataKey='density' />

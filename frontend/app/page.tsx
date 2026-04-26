@@ -191,31 +191,6 @@ export default function HomePage() {
         </Card>
       </section>
 
-      {/* TEAM */}
-      {overview?.team?.length ? (
-        <section id='team' className='page-shell py-16'>
-          <SectionHeading
-            overline='Behind the platform'
-            title='Core transit AI team'
-            description='Managed from the admin CRUD module and surfaced live on the public site.'
-          />
-          <div className='mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3'>
-            {overview.team.map((member: any) => (
-              <Card key={member.id} className='h-full'>
-                <div className='flex items-center gap-4'>
-                  <img src={member.image} alt={`${member.name} ${member.surname}`} className='h-14 w-14 rounded-xl object-cover ring-1 ring-[color:var(--border-strong)]' />
-                  <div>
-                    <h3 className='text-base font-semibold'>{member.name} {member.surname}</h3>
-                    <p className='text-xs text-[color:var(--text-soft)]'>{member.role}</p>
-                  </div>
-                </div>
-                <p className='mt-4 text-sm leading-6 text-[color:var(--text-soft)]'>{member.bio}</p>
-              </Card>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       <Footer />
     </div>
   );

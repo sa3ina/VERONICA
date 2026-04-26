@@ -47,11 +47,11 @@ export function StatTile({
         <p className='text-overline'>{label}</p>
         {icon ? <span className='text-[color:var(--brand-secondary)]'>{icon}</span> : null}
       </div>
-      <p className='numeric mt-3 text-3xl font-semibold tracking-tight'>{value}</p>
+      <p className='numeric mt-3 truncate text-2xl font-semibold tracking-tight md:text-3xl' title={typeof value === 'string' ? value : undefined}>{value}</p>
       {helper ? (
-        <p className={cn('mt-2 inline-flex items-center gap-1 text-xs', trendColor)}>
-          {trend === 'up' ? <ArrowUpRight className='h-3.5 w-3.5' /> : trend === 'down' ? <ArrowDownRight className='h-3.5 w-3.5' /> : null}
-          <span>{helper}</span>
+        <p className={cn('mt-2 flex items-center gap-1 text-xs', trendColor)}>
+          {trend === 'up' ? <ArrowUpRight className='h-3.5 w-3.5 shrink-0' /> : trend === 'down' ? <ArrowDownRight className='h-3.5 w-3.5 shrink-0' /> : null}
+          <span className='truncate' title={typeof helper === 'string' ? helper : undefined}>{helper}</span>
         </p>
       ) : null}
     </div>
